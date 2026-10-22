@@ -121,6 +121,15 @@ export async function closeTab(id: string) {
   get().removeTab(id);
 }
 
+/** Closes a tab right away, without asking (e.g. clearing out hidden tabs). */
+export function deleteTab(id: string) {
+  const tab = tabById(id);
+  if (!tab) return;
+  terms.dispose(id);
+  get().removeTab(id);
+  get().showToast(`Deleted ${tab.title}`);
+}
+
 /** Opens the tab's folder in VS Code — the agent's (last) worktree when it has one. */
 export async function openInVSCode(id: string) {
   const tab = tabById(id);

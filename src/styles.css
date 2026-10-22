@@ -2068,3 +2068,12 @@ body.dragging-frame * {
   min-width: 0;
   padding: 5px 12px;
 }
+
+.hm-delete:hover {
+  color: var(--danger);
+}
+.hm-delete {
+  display: inline-flex;
+  flex: none;
+  padding: 4px;
+}

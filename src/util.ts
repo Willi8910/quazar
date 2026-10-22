@@ -1,4 +1,3 @@
-
 let home = "";
 export function setHome(dir: string) {
   home = dir.replace(/\/$/, "");
@@ -52,7 +51,11 @@ export function fuzzyScore(query: string, text: string): number | null {
 export function digest(text: string | null | undefined, max = 160): string {
   if (!text) return "";
   const lines = text.split("\n").filter((l) => l.trim());
-  const clean = (l: string) => l.replace(/^[#>*\-\s]+/, "").replace(/[*`_]/g, "").trim();
+  const clean = (l: string) =>
+    l
+      .replace(/^[#>*\-\s]+/, "")
+      .replace(/[*`_]/g, "")
+      .trim();
   const prose = lines.find((l) => !/^\s*#/.test(l) && clean(l));
   const line = clean(prose ?? lines[0] ?? "");
   return line.length > max ? line.slice(0, max - 1) + "…" : line;
@@ -67,6 +70,24 @@ export function describeTool(name: string, input: any): string {
   return text.length > 80 ? text.slice(0, 79) + "…" : text;
 }
 
+/** "just now", "5 minutes ago", "1 week ago", "3 months ago" … */
+export function timeAgoLong(ms: number): string {
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  const units: [number, string][] = [
+    [365 * 86400, "year"],
+    [30 * 86400, "month"],
+    [7 * 86400, "week"],
+    [86400, "day"],
+    [3600, "hour"],
+    [60, "minute"],
+  ];
+  for (const [size, name] of units) {
+    const n = Math.floor(s / size);
+    if (n >= 1) return `${n} ${name}${n === 1 ? "" : "s"} ago`;
+  }
+  return "just now";
+}
+
 export function timeAgo(ms: number): string {
   const s = Math.max(0, (Date.now() - ms) / 1000);
   if (s < 60) return "now";
@@ -74,4 +95,3 @@ export function timeAgo(ms: number): string {
   if (s < 86400) return `${Math.floor(s / 3600)}h`;
   return `${Math.floor(s / 86400)}d`;
 }
-

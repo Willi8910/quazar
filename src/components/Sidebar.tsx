@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as actions from "../actions";
 import { attention, sharedCheckouts } from "../attention";
@@ -7,7 +7,7 @@ import type { DropPosition } from "../store";
 import type { Tab } from "../types";
 import { isCollapsed, MovePosition, Node, ownerGroupId, pathTo, subtreeTabs } from "../tree";
 import { timeAgo, tildify } from "../util";
-import { HiddenManager } from "./HiddenManager";
+import { HiddenManager, ManagerAnchor } from "./HiddenManager";
 import { useHoverPopover, windowRect } from "./hover";
 import { MetricsBar, TabMetrics } from "./Metrics";
 import {
@@ -434,15 +434,11 @@ export function Sidebar() {
   const hiddenCount = useApp((s) => s.tabs.filter((t) => t.hidden).length) + hiddenSections.length;
   const showHidden = useApp((s) => !!s.config!.showHiddenTabs);
   const [menu, setMenu] = useState<MenuState | null>(null);
-  /** Anchor of the open hidden-items popover. */
-  const [manager, setManager] = useState<DOMRect | null>(null);
-  const closeManager = useCallback(() => setManager(null), []);
-  const managerTimer = useRef<number | undefined>(undefined);
-  /** Opens the popover after a short hover, or closes it shortly after the pointer leaves (`null`). */
-  const hoverManager = useCallback((anchor: DOMRect | null) => {
-    window.clearTimeout(managerTimer.current);
-    managerTimer.current = window.setTimeout(() => setManager(anchor), anchor ? 250 : 200);
-  }, []);
+  /** The hidden-items popover, opened by hovering the eye toggle. */
+  const manager = useHoverPopover<ManagerAnchor, HTMLButtonElement>((eye) => {
+    const r = windowRect(eye);
+    return { right: r.right, top: r.bottom + 4 };
+  });
   const [drop, setDrop] = useState<Drop | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const drag = useRef<Drag | null>(null);
@@ -793,10 +789,11 @@ export function Sidebar() {
             {allCollapsed ? <ExpandAllIcon /> : <CollapseAllIcon />}
           </button>
           <button
+            ref={manager.trigger}
             className={"icon-btn tool-btn hidden-toggle" + (showHidden ? " on" : "")}
             onClick={actions.toggleShowHiddenTabs}
-            onMouseEnter={(e) => hoverManager(e.currentTarget.getBoundingClientRect())}
-            onMouseLeave={() => hoverManager(null)}
+            onMouseEnter={manager.onMouseEnter}
+            onMouseLeave={manager.onMouseLeave}
             aria-label="Show hidden groups and tabs"
           >
             {showHidden ? <EyeIcon /> : <EyeOffIcon />}
@@ -835,14 +832,12 @@ export function Sidebar() {
         title="Drag to resize · double-click to reset"
       />
       {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
-      {manager && (
-        <HiddenManager
-          anchor={manager}
-          onClose={closeManager}
-          onPointerEnter={() => window.clearTimeout(managerTimer.current)}
-          onPointerLeave={() => hoverManager(null)}
-        />
-      )}
+      {/* Portaled: the sidebar is zoomed, which would skew a fixed-position popover inside it. */}
+      {manager.anchor &&
+        createPortal(
+          <HiddenManager anchor={manager.anchor} panelRef={manager.panel} onClose={manager.close} />,
+          document.body,
+        )}
     </div>
   );
 }
