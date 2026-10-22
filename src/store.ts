@@ -158,8 +158,12 @@ export const useApp = create<AppState>((set, get) => ({
       // (A new window hydrates from the main window's live state instead; see sync.ts.)
       tabs: (state?.tabs ?? []).map((t) => ({
         ...t,
-        // An agent still running when Quazar quit resumes when its tab is opened.
-        ...(get().me === "main" && { agentRunning: false, detail: "", resumeOnOpen: t.resumeOnOpen || t.agentRunning }),
+        // After a restart, a session resumes when its tab is opened — unless the user had exited the agent.
+        ...(get().me === "main" && {
+          agentRunning: false,
+          detail: "",
+          resumeOnOpen: t.resumeOnOpen || (!!t.sessionId && !t.agentExited),
+        }),
         window: exists(t.window) ? t.window : undefined,
       })),
       groups: state?.groups ?? [],

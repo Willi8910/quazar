@@ -49,10 +49,12 @@ export interface Tab {
   /** Left out of the sidebar unless hidden tabs are shown; its shell keeps running. */
   hidden?: boolean;
   /**
-   * Its agent was cut off (Quazar quit, Stop, the shell died) rather than exited, so opening the tab
-   * resumes the session right away; otherwise the resume command is only typed in.
+   * Opening the tab resumes its agent session right away (Quazar restarted, or the agent was cut off by
+   * Stop or its shell dying); otherwise the resume command is only typed in.
    */
   resumeOnOpen?: boolean;
+  /** The user exited the agent themselves (it returned to the shell): don't relaunch it unasked. */
+  agentExited?: boolean;
   /** A quick terminal: listed under "Terminals" instead of its folder (unless put in a group). */
   loose?: boolean;
   /** Label of the window showing the tab (one window per tab); unset = the main window. */

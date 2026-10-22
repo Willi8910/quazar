@@ -586,12 +586,14 @@ function onShellEvent(ev: ShellEvent) {
       agent: ev.launch.agent,
       launchArgv: ev.launch.argv,
       agentRunning: true,
+      agentExited: false,
       status: "idle",
       detail: "",
     });
   }
   if (ev.kind === "precmd") {
-    if (tab.agentRunning) get().updateTab(tab.id, { agentRunning: false, detail: "" });
+    // Back at the shell prompt with the agent gone: the user exited it.
+    if (tab.agentRunning) get().updateTab(tab.id, { agentRunning: false, agentExited: true, detail: "" });
     terms.onPrompt(tab.id);
     window.dispatchEvent(new CustomEvent("quazar:prompt", { detail: tab.id }));
   }
@@ -645,6 +647,7 @@ function onAgentEvent(ev: AgentEvent) {
     get().updateTab(tab.id, {
       agent: ev.agent,
       agentRunning: true,
+      agentExited: false,
       agentCwd,
       sessionId,
       ...patch,
@@ -712,7 +715,7 @@ function onAgentEvent(ev: AgentEvent) {
       break;
     }
     case "SessionEnd":
-      update({ agentRunning: false, detail: "" });
+      update({ agentRunning: false, agentExited: true, detail: "" });
       break;
   }
 }
