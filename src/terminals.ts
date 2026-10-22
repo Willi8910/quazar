@@ -160,7 +160,10 @@ function onTerminalTitle(tabId: string, raw: string) {
     useApp.getState().updateTab(tabId, { title, titleSource: "terminal" });
 }
 
-/** Starts the tab's shell. A restored agent tab gets its resume command typed in, not run. */
+/**
+ * Starts the tab's shell. A tab whose agent was cut off (see `Tab.resumeOnOpen`) resumes the
+ * session as soon as the shell is ready; one whose agent was exited gets the resume command typed in.
+ */
 export async function start(tabId: string) {
   const state = useApp.getState();
   const tab = state.tabs.find((t) => t.id === tabId);
@@ -168,7 +171,13 @@ export async function start(tabId: string) {
   if (!tab || !entry) return;
   entry.running = true;
   state.setLive(tabId, true);
-  const prefill = pendingRun.has(tabId) ? null : await resumeCommand(tab);
+  let prefill: string | null = null;
+  if (!pendingRun.has(tabId)) {
+    const resume = await resumeCommand(tab);
+    if (resume && tab.resumeOnOpen) pendingRun.set(tabId, resume);
+    else prefill = resume;
+    if (tab.resumeOnOpen) state.updateTab(tabId, { resumeOnOpen: false });
+  }
 
   const channel = new Channel<ArrayBuffer | number[]>();
   channel.onmessage = (data) =>
@@ -293,13 +302,15 @@ export function onExit(tabId: string) {
   const tab = state.tabs.find((t) => t.id === tabId);
   if (!tab) return;
   state.setLive(tabId, false);
-  state.updateTab(tabId, { agentRunning: false, detail: "" });
+  // Stopped, or the shell died under a running agent: resume when opened again.
+  const cutOff = stopped || tab.agentRunning;
+  state.updateTab(tabId, { agentRunning: false, detail: "", ...(cutOff && { resumeOnOpen: true }) });
   const entry = entries.get(tabId);
   if (!entry) return;
   entry.running = false;
   // Out of sight: nothing to show the message to, so free its screen now.
   if (useApp.getState().activeId !== tabId) return freeIdle();
-  const resume = tab.agent && tab.sessionId ? " (its resume command will be typed in)" : "";
+  const resume = cutOff && tab.agent && tab.sessionId ? " and resume the session" : "";
   entry.term.write(
     stopped
       ? `\r\n\x1b[2m[stopped to free resources — press any key to start again${resume}]\x1b[0m\r\n`

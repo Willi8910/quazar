@@ -770,7 +770,7 @@ function pollMetrics() {
 
 /**
  * Stops everything running in a tab to free its CPU and memory. The tab stays; an agent exits
- * cleanly and opening the tab again starts a shell with its resume command typed in.
+ * cleanly and opening the tab again starts a shell that resumes the session.
  */
 export async function stopTab(id: string) {
   const tab = tabById(id);

@@ -48,6 +48,11 @@ export interface Tab {
   unseen: boolean;
   /** Left out of the sidebar unless hidden tabs are shown; its shell keeps running. */
   hidden?: boolean;
+  /**
+   * Its agent was cut off (Quazar quit, Stop, the shell died) rather than exited, so opening the tab
+   * resumes the session right away; otherwise the resume command is only typed in.
+   */
+  resumeOnOpen?: boolean;
   /** A quick terminal: listed under "Terminals" instead of its folder (unless put in a group). */
   loose?: boolean;
   /** Label of the window showing the tab (one window per tab); unset = the main window. */

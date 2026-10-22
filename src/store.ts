@@ -158,7 +158,8 @@ export const useApp = create<AppState>((set, get) => ({
       // (A new window hydrates from the main window's live state instead; see sync.ts.)
       tabs: (state?.tabs ?? []).map((t) => ({
         ...t,
-        ...(get().me === "main" && { agentRunning: false, detail: "" }),
+        // An agent still running when Quazar quit resumes when its tab is opened.
+        ...(get().me === "main" && { agentRunning: false, detail: "", resumeOnOpen: t.resumeOnOpen || t.agentRunning }),
         window: exists(t.window) ? t.window : undefined,
       })),
       groups: state?.groups ?? [],
