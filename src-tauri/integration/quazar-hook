@@ -1,0 +1,10 @@
+#!/bin/sh
+# Called by Claude Code / Codex hooks: quazar-hook <agent> <event>
+# Forwards the hook's JSON input to Quazar. Silent no-op outside Quazar; never blocks the agent.
+[ -n "$QUAZAR_TAB_ID" ] && [ -S "$QUAZAR_SOCK" ] || { cat >/dev/null; exit 0; }
+payload=$(cat)
+[ -n "$payload" ] || payload=null
+printf '{"tab":"%s","agent":"%s","event":"%s","payload":%s}\n' \
+  "$QUAZAR_TAB_ID" "$1" "$2" "$payload" | tr '\n' ' ' | { cat; echo; } \
+  | nc -U -w 1 "$QUAZAR_SOCK" >/dev/null 2>&1 &
+exit 0
