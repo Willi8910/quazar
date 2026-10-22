@@ -115,6 +115,12 @@ export interface Config {
   lastProfileId?: string;
   /** Show hidden tabs (dimmed) in the sidebar. */
   showHiddenTabs?: boolean;
+  /** System notifications when an agent finishes a turn (unset = on). */
+  notifyDone?: boolean;
+  /** System notifications when an agent waits for approval or input (unset = on). */
+  notifyWaiting?: boolean;
+  /** "Not now" on the reminder that macOS notifications are off. */
+  notifyPromptDismissed?: boolean;
   /** The first-launch setup was finished or skipped. */
   onboarded?: boolean;
   /** Build time of the Quazar last opened, to say so when it changed (an update). */
@@ -233,6 +239,9 @@ export interface TabUsage extends ResourceUse {
   /** The busiest program under the shell, e.g. "claude". */
   top: string | null;
 }
+
+/** Whether macOS lets Quazar show notifications ("unsupported": can't tell, e.g. a development build). */
+export type NotifyPermission = "granted" | "denied" | "not-determined" | "unsupported";
 
 export interface AppInfo {
   version: string;

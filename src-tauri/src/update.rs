@@ -24,7 +24,7 @@ fn built_app() -> PathBuf {
 }
 
 /// The `.app` bundle this process runs from (…/Quazar.app/Contents/MacOS/quazar).
-fn running_app() -> Option<PathBuf> {
+pub(crate) fn running_app() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let app = exe.ancestors().nth(3)?.to_path_buf();
     (app.extension()? == "app").then_some(app)

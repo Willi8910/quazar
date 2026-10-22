@@ -6,6 +6,7 @@ import type {
   Group,
   LaunchOption,
   Metrics,
+  NotifyPermission,
   PersistedState,
   Profile,
   SessionRecord,
@@ -77,6 +78,8 @@ interface AppState {
   agents: AgentInfo[];
   /** Set after an update, to say so once ("0.1.0 · built …"). */
   updated: string | null;
+  /** Whether macOS lets Quazar show notifications; null until checked. */
+  notifyPermission: NotifyPermission | null;
   /** This app's version and build time. */
   appInfo: AppInfo | null;
   /** Updating Quazar from its source folder; null when there's nothing to update. */
@@ -140,6 +143,7 @@ export const useApp = create<AppState>((set, get) => ({
   hooksInstalled: {},
   update: null,
   appInfo: null,
+  notifyPermission: null,
   updated: null,
   toast: null,
   suggestedRoot: null,

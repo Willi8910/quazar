@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import * as actions from "../actions";
+import { api } from "../api";
 import { LAUNCH_OPTIONS, profileAgent } from "../launch";
 import { useApp } from "../store";
 import * as terms from "../terminals";
@@ -169,7 +170,58 @@ function Profiles({ profiles }: { profiles: Profile[] }) {
   );
 }
 
-const SECTIONS = ["Agents", "Appearance", "Projects"] as const;
+/** On/off for each kind of agent notification, and a test to check macOS allows them. */
+function NotificationSettings({ config }: { config: Config }) {
+  const [test, setTest] = useState<"sent" | "blocked" | null>(null);
+  const permission = useApp((s) => s.notifyPermission);
+  const toggle = (key: "notifyDone" | "notifyWaiting") => set({ [key]: config[key] === false });
+  return (
+    <>
+      <span className="field-hint">
+        System notifications for agents in tabs you're not looking at (another tab, or another app in front).
+      </span>
+      {permission === "denied" && (
+        <div className="settings-test">
+          <span className="field-hint warn">Notifications are turned off for Quazar in macOS.</span>
+          <button className="btn small" onClick={() => void api.openNotificationSettings()}>
+            Open System Settings
+          </button>
+        </div>
+      )}
+      {permission === "not-determined" && (
+        <div className="settings-test">
+          <span className="field-hint">macOS hasn't asked yet whether Quazar may notify you.</span>
+          <button className="btn small" onClick={() => void actions.checkNotifications(true)}>
+            Allow notifications…
+          </button>
+        </div>
+      )}
+      {permission === "granted" && <span className="field-hint ok">✓ Allowed in macOS</span>}
+      <button className="switch-row" onClick={() => toggle("notifyDone")}>
+        <span>When an agent finishes</span>
+        <span className={"switch" + (config.notifyDone !== false ? " on" : "")} />
+      </button>
+      <button className="switch-row" onClick={() => toggle("notifyWaiting")}>
+        <span>When an agent needs your approval or input</span>
+        <span className={"switch" + (config.notifyWaiting !== false ? " on" : "")} />
+      </button>
+      <div className="settings-test">
+        <button
+          className="btn small"
+          onClick={() => void actions.testNotification().then((ok) => setTest(ok ? "sent" : "blocked"))}
+        >
+          Send a test notification
+        </button>
+        {test === "sent" && (
+          <span className="field-hint">Sent — if nothing appeared, check Focus / Do Not Disturb.</span>
+        )}
+        {test === "blocked" && <span className="field-hint warn">macOS is blocking them — see above.</span>}
+      </div>
+    </>
+  );
+}
+
+const SECTIONS = ["Agents", "Notifications", "Appearance", "Projects"] as const;
 type Section = (typeof SECTIONS)[number];
 /** Reopening Settings returns to the last section. */
 let lastSection: Section = "Agents";
@@ -233,6 +285,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </button>
             </>
           )}
+
+          {section === "Notifications" && <NotificationSettings config={config} />}
 
           {section === "Appearance" && (
             <>

@@ -13,6 +13,7 @@ import {
   quickLaunch,
   renameTab,
   revealInFinder,
+  saveConfig,
 } from "./actions";
 import { api } from "./api";
 import { CodeIcon, DiffIcon, FolderIcon, ForkIcon, PanelIcon, TrashIcon, WindowIcon } from "./components/icons";
@@ -171,6 +172,44 @@ function RootDrawer() {
       </button>
       <button className="btn small primary" onClick={() => answerSuggestedRoot(true)}>
         Add folder
+      </button>
+    </div>
+  );
+}
+
+/** Reminds that macOS notifications are off, while any agent notification is turned on in Settings. */
+function NotificationsDrawer() {
+  const show = useApp(
+    (s) =>
+      s.me === "main" &&
+      s.notifyPermission === "denied" &&
+      (s.config!.notifyDone !== false || s.config!.notifyWaiting !== false) &&
+      !s.config!.notifyPromptDismissed &&
+      // Not over the first-launch setup.
+      (s.config!.onboarded === true || s.tabs.length > 0),
+  );
+  if (!show) return null;
+  const dismiss = () => {
+    useApp.getState().setConfig({ notifyPromptDismissed: true });
+    saveConfig();
+  };
+  return (
+    <div className="drawer" role="dialog">
+      <span className="updated-check notify-bell">🔔</span>
+      <div className="drawer-text">
+        <div>
+          <b>Notifications are off for Quazar</b>
+        </div>
+        <div className="drawer-sub">
+          Turn them on to hear when an agent finishes or needs you, even while you're in another app. In System
+          Settings, switch on <i>Allow notifications</i> for Quazar.
+        </div>
+      </div>
+      <button className="btn small" onClick={dismiss}>
+        Not now
+      </button>
+      <button className="btn small primary" onClick={() => void api.openNotificationSettings()}>
+        Open Settings
       </button>
     </div>
   );
@@ -373,6 +412,7 @@ export default function App() {
       <RootDrawer />
       <DeleteGroupDrawer />
       <UpdatedDrawer />
+      <NotificationsDrawer />
       <Onboarding />
       <Toast />
     </div>

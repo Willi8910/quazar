@@ -2077,3 +2077,19 @@ body.dragging-frame * {
   flex: none;
   padding: 4px;
 }
+
+.settings-test {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.field-hint.warn {
+  color: var(--waiting);
+}
+
+.field-hint.ok {
+  color: var(--done);
+}
+.notify-bell {
+  font-size: 15px;
+}

@@ -3,7 +3,7 @@ import { homeDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { ask, message, open } from "@tauri-apps/plugin-dialog";
-import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
+import { sendNotification } from "@tauri-apps/plugin-notification";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { api } from "./api";
 import { busyIn, nextAttention } from "./attention";
@@ -24,7 +24,7 @@ import { listenHere, requestSnapshot, startSync } from "./sync";
 import { flatten, isCollapsed, pathTo, subtreeTabs, visibleTabs } from "./tree";
 import * as terms from "./terminals";
 import type { AgentEvent, Group, Profile, ShellEvent, Tab } from "./types";
-import { describeTool, digest, newId, setHome, shellQuote, tildify, untildify } from "./util";
+import { basename, describeTool, digest, newId, setHome, shellQuote, tildify, untildify } from "./util";
 
 const get = () => useApp.getState();
 const tabById = (id: string) => get().tabs.find((t) => t.id === id);
@@ -567,9 +567,66 @@ function visible(tabId: string) {
   return get().activeId === tabId && document.hasFocus();
 }
 
-let notifyAllowed = false;
-function notify(tab: Tab, body: string) {
-  if (notifyAllowed && !visible(tab.id)) sendNotification({ title: tab.title, body });
+/** A system notification about `tab`, unless it's on screen or that kind is turned off in Settings. */
+type NotifyKind = "done" | "approval" | "input";
+
+/**
+ * Tells about an agent that finished or needs you, unless its tab is on screen or that kind is off in
+ * Settings. Clicking the notification opens the tab.
+ */
+function notify(tab: Tab, kind: NotifyKind, text: string) {
+  const config = get().config!;
+  const enabled = kind === "done" ? config.notifyDone !== false : config.notifyWaiting !== false;
+  if (!enabled || get().notifyPermission === "denied" || visible(tab.id)) return;
+  const agent = agentInfo(tab.agent)?.label ?? "Your agent";
+  const title = {
+    done: `${agent} finished`,
+    approval: `${agent} needs your approval`,
+    input: `${agent} is waiting for you`,
+  }[kind];
+  // Which tab, and where it works: "Fix login bug · platform_api".
+  const place = basename(tab.worktree ?? tab.repoRoot ?? tab.cwd);
+  const subtitle = tab.title === place ? place : `${tab.title} · ${place}`;
+  const body =
+    text ||
+    { done: "Ready for your next prompt.", approval: "It's waiting to run a tool.", input: "It needs your input." }[
+      kind
+    ];
+  void api.notify(tab.id, title, subtitle, body).then((shown) => {
+    // Without the system framework (development builds): a plain notification, no click-through.
+    if (!shown) sendNotification({ title: `${title} — ${tab.title}`, body });
+  });
+}
+
+/** A notification was clicked: the window showing that tab opens it. */
+async function onNotificationClicked(tabId: string) {
+  const tab = tabById(tabId);
+  if (!tab || !isMine(tab)) return;
+  if (tab.hidden) get().updateTab(tabId, { hidden: false });
+  get().activate(tabId);
+  const win = getCurrentWindow();
+  await win.show();
+  await win.unminimize();
+  await win.setFocus();
+}
+
+/**
+ * Reads whether macOS allows Quazar's notifications; with `ask`, shows the macOS prompt if it was
+ * never answered.
+ */
+export async function checkNotifications(ask = false) {
+  let permission = await api.notificationPermission().catch(() => "unsupported" as const);
+  if (permission === "not-determined" && ask) permission = await api.requestNotificationPermission();
+  useApp.setState({ notifyPermission: permission });
+  return permission;
+}
+
+/** Asks for permission if needed and sends a sample notification; false when macOS blocks them. */
+export async function testNotification(): Promise<boolean> {
+  const permission = await checkNotifications(true);
+  if (permission === "denied") return false;
+  sendNotification({ title: "Quazar", body: "This is how you'll hear that an agent is done or needs you." });
+  return true;
 }
 
 // Each window handles the events of the tabs it shows; the others get the result through sync.
@@ -694,14 +751,18 @@ function onAgentEvent(ev: AgentEvent) {
           detail: msg || "Needs your input",
           unseen: !visible(tab.id),
         });
-        notify(tab, msg || "Needs your input");
+        notify(tab, /permission|approv/i.test(msg) ? "approval" : "input", msg);
       }
       break;
     }
     case "PermissionRequest": {
-      const detail = `Approve ${describeTool(p.tool_name ?? "tool", p.tool_input)}?`;
+      const tool = describeTool(p.tool_name ?? "tool", p.tool_input);
+      const detail = `Approve ${tool}?`;
       update({ status: "waiting", detail, unseen: !visible(tab.id) });
-      notify(tab, detail);
+      // "Bash: npm test", "Edit: login.ts"
+      const name = p.tool_name ?? "a tool";
+      const target = tool.slice(name.length).trim();
+      notify(tab, "approval", target ? `${name}: ${target}` : `Use ${name}`);
       break;
     }
     case "Stop": {
@@ -711,7 +772,7 @@ function onAgentEvent(ev: AgentEvent) {
       const summary = digest(ev.summary ?? "") || tab.summary;
       update({ status: "done", detail: "", summary, unseen: !visible(tab.id) });
       void refreshChanges(tab.id, true);
-      notify(tab, summary || "Finished");
+      notify(tab, "done", summary);
       break;
     }
     case "SessionEnd":
@@ -935,6 +996,7 @@ export async function init() {
   await listenHere<string>("menu", (id) => onMenu(id));
   await listen<ShellEvent>("shell-event", (e) => onShellEvent(e.payload));
   await listen<AgentEvent>("agent-event", (e) => onAgentEvent(e.payload));
+  await listen<string>("notification-clicked", (e) => void onNotificationClicked(e.payload));
   await listen<string>("pty-exit", (e) => {
     const tab = tabById(e.payload);
     if (tab && isMine(tab)) terms.onExit(e.payload);
@@ -948,8 +1010,9 @@ export async function init() {
     }
   });
 
-  notifyAllowed = await isPermissionGranted();
-  if (!notifyAllowed) notifyAllowed = (await requestPermission()) === "granted";
+  // Ask macOS once (it prompts only the first time); later, notice when it's been turned on or off.
+  void checkNotifications(me === "main");
+  window.addEventListener("focus", () => void checkNotifications());
 
   if (me === "main") await initMain();
 }

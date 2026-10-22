@@ -2,6 +2,7 @@ mod agents;
 mod events;
 mod hooks;
 mod metrics;
+mod notifications;
 mod paths;
 mod projects;
 mod pty;
@@ -128,6 +129,7 @@ pub fn run() {
             let paths = Paths::new(app.path().app_data_dir()?);
             paths.install_integration()?;
             events::listen(app.handle().clone(), &paths.socket)?;
+            notifications::install(app.handle());
             app.manage(paths);
             app.set_menu(build_menu(app.handle())?)?;
             app.on_menu_event(|app, event| {
@@ -185,6 +187,10 @@ pub fn run() {
             windows::handoff_take,
             metrics::process_metrics,
             update::update_status,
+            notifications::notification_permission,
+            notifications::notify,
+            notifications::request_notification_permission,
+            notifications::open_notification_settings,
             update::app_info,
             update::update_build,
             update::update_install,
