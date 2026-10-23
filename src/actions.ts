@@ -350,17 +350,30 @@ export function setSidebarWidth(width: number) {
 }
 
 /** Hides or shows one tab in the sidebar; separate from hiding its whole section. */
-export function setTabHidden(id: string, hidden: boolean) {
+/** Hides (and stops, to free its resources) or unhides a tab. */
+export async function setTabHidden(id: string, hidden: boolean) {
+  if (hidden && !(await stopTabs([id], "Hide"))) return;
   const order = visualOrder();
   get().updateTab(id, { hidden });
   if (hidden) leaveHidden(order, [id]);
-  get().showToast(hidden ? "Tab hidden" : "Tab unhidden");
+  const stopped = hidden && tabById(id)?.sessionId;
+  get().showToast(hidden ? `Tab hidden${stopped ? " and stopped · unhide it to resume" : ""}` : "Tab unhidden");
 }
 
 /** Hides or shows a whole sidebar node (with everything in it). Its tabs keep their own hidden state. */
-export function setSectionHidden(key: string, hidden: boolean) {
+export async function setSectionHidden(key: string, hidden: boolean) {
   const order = visualOrder();
   const node = pathTo(sidebarTree(true), key)?.slice(-1)[0];
+  // Hidden tabs are stopped, to free their resources.
+  if (
+    hidden &&
+    node &&
+    !(await stopTabs(
+      subtreeTabs(node).map((t) => t.id),
+      "Hide",
+    ))
+  )
+    return;
   const list = get().hiddenSections.filter((k) => k !== key);
   useApp.setState({ hiddenSections: hidden ? [...list, key] : list });
   if (hidden && node)
@@ -838,21 +851,30 @@ function pollMetrics() {
  */
 export async function stopTab(id: string) {
   const tab = tabById(id);
-  if (!tab || !get().live[id]) return;
-  if (tab.agentRunning && (tab.status === "working" || tab.status === "waiting")) {
+  if (tab && get().live[id] && (await stopTabs([id], "Stop")))
+    get().showToast(`Stopped ${tab.title}${tab.sessionId ? " · its resume command is ready" : ""}`);
+}
+
+/**
+ * Stops the running tabs among `ids` (asking first if an agent is still working); their agents
+ * don't resume by themselves. False if the user cancelled.
+ */
+async function stopTabs(ids: string[], verb: "Stop" | "Hide"): Promise<boolean> {
+  const running = ids.map(tabById).filter((t): t is Tab => !!t && !!get().live[t.id]);
+  const busy = running.filter((t) => t.agentRunning && (t.status === "working" || t.status === "waiting"));
+  if (busy.length) {
+    const names = busy.map((t) => `• ${t.title}`).join("\n");
     const ok = await ask(
-      `The agent in “${tab.title}” is still working. Stop it anyway? You can resume the session later.`,
-      {
-        title: "Stop tab?",
-        kind: "warning",
-        okLabel: "Stop",
-      },
+      `${busy.length === 1 ? "This agent is" : "These agents are"} still working:\n${names}\n\n${verb === "Hide" ? "Hiding stops" : "Stopping ends"} ${busy.length === 1 ? "it" : "them"}; you can resume later.`,
+      { title: `${verb} anyway?`, kind: "warning", okLabel: verb },
     );
-    if (!ok) return;
+    if (!ok) return false;
   }
-  terms.markStopping(id);
-  await api.terminate(id);
-  get().showToast(`Stopped ${tab.title}${tab.sessionId ? " · open it to resume" : ""}`);
+  for (const tab of running) {
+    terms.markStopping(tab.id);
+    await api.terminate(tab.id);
+  }
+  return true;
 }
 
 // ---------- windows ----------

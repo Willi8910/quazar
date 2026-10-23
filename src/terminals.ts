@@ -7,7 +7,7 @@ import { SerializeAddon } from "@xterm/addon-serialize";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
-import { Terminal } from "@xterm/xterm";
+import { IBufferCell, IMarker, Terminal } from "@xterm/xterm";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { api } from "./api";
 import { useApp } from "./store";
@@ -20,6 +20,10 @@ interface Entry {
   host: HTMLDivElement;
   webgl: WebglAddon | null;
   running: boolean;
+  /** Markers of the links coloured on screen (see `colorLinks`). */
+  links: IMarker[];
+  /** What the screen showed when links were last coloured, to skip unchanged screens. */
+  linksSeen: string;
 }
 
 const entries = new Map<string, Entry>();
@@ -50,12 +54,22 @@ export const theme = {
   brightWhite: "#ffffff",
 };
 
+/**
+ * Turns off what a full-screen program (an agent) may have left on when it was killed: mouse
+ * tracking, focus reports, bracketed paste, the alternate screen, a hidden cursor.
+ */
+const RESET_MODES =
+  "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l\x1b[?1004l\x1b[?2004l\x1b[?1049l\x1b[?25h\x1b[0m";
+
+/** Mouse and focus reports the terminal sends by itself — not the user typing. */
+const isReport = (data: string) => /^\x1b\[(<|M|I$|O$)/.test(data);
+
 function send(tabId: string, data: string) {
   const entry = entries.get(tabId);
   if (!entry) return;
   if (!entry.running) {
-    // Shell has exited: any key starts a fresh one.
-    void start(tabId);
+    // Shell has exited: a key (not a mouse move) starts a fresh one.
+    if (!isReport(data)) void start(tabId);
     return;
   }
   void api.write(tabId, data);
@@ -143,9 +157,66 @@ function create(tabId: string, container: HTMLElement): Entry {
   });
   term.onTitleChange((title) => onTerminalTitle(tabId, title));
 
-  const entry: Entry = { term, fit, serialize, host, webgl: null, running: false };
+  const entry: Entry = { term, fit, serialize, host, webgl: null, running: false, links: [], linksSeen: "" };
+  // Links in blue (xterm only underlines them on hover): looked for shortly after new output, a
+  // scroll or a resize — never while the terminal is idle.
+  let linkTimer: number | undefined;
+  const linksLater = () => {
+    window.clearTimeout(linkTimer);
+    linkTimer = window.setTimeout(() => colorLinks(entry), 150);
+  };
+  term.onWriteParsed(linksLater);
+  term.onScroll(linksLater);
+  term.onResize(linksLater);
   entries.set(tabId, entry);
   return entry;
+}
+
+/** Reused while reading cells, instead of a new object per cell. */
+let scratchCell: IBufferCell | undefined;
+
+const URL_PATTERN = /https?:\/\/[^\s"'<>`\][{}|\\^]+/g;
+
+/** Colours the links on screen blue: only the visible lines, and only when they changed. */
+function colorLinks(entry: Entry) {
+  const { term } = entry;
+  if (entry.host.style.display === "none") return;
+  const buffer = term.buffer.active;
+  const lines = [];
+  for (let y = buffer.viewportY; y < buffer.viewportY + term.rows; y++) {
+    const line = buffer.getLine(y);
+    if (line) lines.push({ y, line, text: line.translateToString(true) });
+  }
+  // Cheap check first: most output (an agent's spinner, typing) doesn't change which links show.
+  const seen = buffer.viewportY + "\n" + lines.map((l) => (/https?:\/\//.test(l.text) ? l.text : "")).join("\n");
+  if (seen === entry.linksSeen) return;
+  entry.linksSeen = seen;
+  for (const marker of entry.links) marker.dispose();
+  entry.links = [];
+  const cursorLine = buffer.baseY + buffer.cursorY;
+  for (const { y, line, text: plain } of lines) {
+    if (!/https?:\/\//.test(plain)) continue;
+    // The line's text, and the column each character starts at (wide characters take two).
+    let text = "";
+    const columns: number[] = [];
+    for (let x = 0; x < line.length; x++) {
+      const cell = (scratchCell = line.getCell(x, scratchCell));
+      if (!cell || cell.getWidth() === 0) continue; // second half of a wide character
+      const chars = cell.getChars() || " ";
+      // One column per UTF-16 unit, matching the string indexes the pattern reports.
+      for (let i = 0; i < chars.length; i++) columns.push(x);
+      text += chars;
+    }
+    for (const match of text.matchAll(URL_PATTERN)) {
+      const url = match[0].replace(/[.,;:!?'")]+$/, "");
+      const start = columns[match.index];
+      const end = columns[match.index + url.length - 1] + 1;
+      const marker = term.registerMarker(y - cursorLine);
+      if (!marker) continue;
+      term.registerDecoration({ marker, x: start, width: end - start, foregroundColor: theme.blue, layer: "top" });
+      entry.links.push(marker);
+    }
+  }
 }
 
 function onTerminalTitle(tabId: string, raw: string) {
@@ -302,20 +373,31 @@ export function onExit(tabId: string) {
   const tab = state.tabs.find((t) => t.id === tabId);
   if (!tab) return;
   state.setLive(tabId, false);
-  // Stopped, or the shell died under a running agent: resume when opened again.
-  const cutOff = stopped || tab.agentRunning;
-  state.updateTab(tabId, { agentRunning: false, detail: "", ...(cutOff && { resumeOnOpen: true }) });
+  if (stopped) {
+    // Stopped by the user (Stop, hiding the tab): its agent never resumes by itself — opening the tab
+    // types the resume command in, ready for Enter, also after a restart.
+    state.updateTab(tabId, { agentRunning: false, agentExited: true, resumeOnOpen: false, detail: "" });
+  } else {
+    // The shell died under a running agent: resume when opened again.
+    const cutOff = tab.agentRunning;
+    state.updateTab(tabId, { agentRunning: false, detail: "", ...(cutOff && { resumeOnOpen: true }) });
+  }
   const entry = entries.get(tabId);
   if (!entry) return;
   entry.running = false;
   // Out of sight: nothing to show the message to, so free its screen now.
   if (useApp.getState().activeId !== tabId) return freeIdle();
-  const resume = cutOff && tab.agent && tab.sessionId ? " and resume the session" : "";
-  entry.term.write(
-    stopped
-      ? `\r\n\x1b[2m[stopped to free resources — press any key to start again${resume}]\x1b[0m\r\n`
-      : "\r\n\x1b[2m[shell exited — press any key to start a new one]\x1b[0m\r\n",
-  );
+  if (stopped) {
+    // A fresh console in place of the agent's screen, with its resume command typed in.
+    entry.term.reset();
+    const resumable = tab.agent && tab.sessionId;
+    entry.term.write(
+      `\x1b[2m[stopped to free resources${resumable ? " — press Enter to resume the session" : ""}]\x1b[0m\r\n`,
+    );
+    void start(tabId);
+    return;
+  }
+  entry.term.write(RESET_MODES + "\r\n\x1b[2m[shell exited — press any key to start a new one]\x1b[0m\r\n");
 }
 
 /** Puts the tab's terminal into `container`, starting its shell on first view. */
@@ -344,6 +426,8 @@ export function show(tabId: string, container: HTMLElement) {
     }
   }
   fitActive(tabId);
+  entry.linksSeen = "";
+  colorLinks(entry);
   if (!entry.running) void (useApp.getState().live[tabId] ? attach(tabId) : start(tabId));
   entry.term.focus();
 }
