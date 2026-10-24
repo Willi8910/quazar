@@ -5,7 +5,7 @@ import { api } from "../api";
 import { bytes, cpuShare, load, memoryShare, percent, TAB_SCALE, total } from "../metrics";
 import { agentInfo, useApp } from "../store";
 import { useHoverPopover, windowRect } from "./hover";
-import { StopIcon } from "./icons";
+import { AgentIcon, StopIcon } from "./icons";
 import type { Metrics, ProcessInfo, ResourceUse, TabUsage } from "../types";
 
 const WIDTH = 380;
@@ -102,9 +102,11 @@ function MetricsPanel({
             <div className="hm-title">
               {tab!.title}
               {tab!.agent && (
-                <span className="agent-tag" style={{ color: agentInfo(tab!.agent)?.color }}>
-                  {tab!.agent}
-                </span>
+                <AgentIcon
+                  agent={tab!.agent}
+                  color={agentInfo(tab!.agent)?.color}
+                  label={agentInfo(tab!.agent)?.label}
+                />
               )}
             </div>
             <div className="hm-sub">

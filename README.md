@@ -15,18 +15,23 @@ Built with [Tauri 2](https://tauri.app), React and xterm.js: a ~5 MB app with a 
   the next one.
 - **Resume anything.** Every session Quazar ran — and every Claude/Codex/Gemini session in that folder — can be
   resumed with the flags it was started with. Agents cut off by a restart or Stop resume when their tab opens.
+- **Tags.** Label tabs with your own tags (name, category, colour) as a light task tracker: they show before
+  the tab name; click one to swap it for another of the same category, hover for × to remove it. Manage and
+  reorder them in **Settings → Tags**.
 - **Review changes.** See an agent's uncommitted changes as a unified or split diff, comment on lines, and send
   the comments back to the agent as its next prompt.
 - **Worktree aware.** Shows each agent's branch and git worktree, and warns when two agents share a checkout.
 - **Resource use.** CPU and memory per tab and in total; hover a tab's figure for every process in it (dev
   servers with their ports included) and stop the one that's running away.
-- **Multiple windows.** Move a tab to its own window (one console per monitor); all windows share the same,
-  synced sidebar.
+- **Multiple windows.** Drag a tab out of the window to give it its own (one console per monitor); all windows
+  share the same, synced sidebar. Opening that tab from another window moves it back and closes the extra one.
 - **Quick skills.** A floating button in the console: hover it for the skills you ran most recently (topped up
   with the ones you made yourself, in the project or your own folder) and click one to run it in that tab's
   agent; Shift-click types it so you can add details. Drag the button anywhere, double-click to put it back;
   turn it off or change how many skills it shows in **Settings → Agents**. Skills are read only when the menu
   opens.
+- **Tips.** The light bulb in the sidebar walks through the features hidden behind hover, right-click and drag,
+  each with a live preview.
 - **Keyboard first.** Everything is in the command palette (**⌘K**).
 - **macOS and Windows.** Native zsh integration on macOS; PowerShell on Windows (preview).
 

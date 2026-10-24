@@ -14,6 +14,8 @@ import { LaunchOptions } from "./LaunchOptions";
 import { Picker, PickerItem, PromptModal } from "./Picker";
 import { Sessions } from "./Sessions";
 import { Settings } from "./Settings";
+import { TagModal } from "./Tags";
+import { Tips } from "./Tips";
 
 const close = () => {
   useApp.getState().openModal(null);
@@ -272,6 +274,7 @@ function Palette() {
         ? [
             cmd("rename", "Rename tab…", () => actions.renameTab(active.id), key("rename-tab")),
             cmd("move", "Move tab to group…", () => s.openModal({ kind: "move-tab", tabId: active.id })),
+            cmd("tag", "Add tag to tab…", () => s.openModal({ kind: "tag", tabId: active.id })),
             ...(actions.canOpenInNewWindow(active)
               ? [cmd("new-window", "Open tab in new window", () => void actions.openInNewWindow(active.id))]
               : []),
@@ -367,10 +370,14 @@ export function Modals() {
       return <GroupFolders groupId={modal.groupId} />;
     case "move-tab":
       return <MoveTab tabId={modal.tabId} />;
+    case "tag":
+      return <TagModal tabId={modal.tabId} onClose={close} />;
     case "hooks":
       return <Hooks />;
     case "settings":
-      return <Settings onClose={close} />;
+      return <Settings onClose={close} initial={modal.section} />;
+    case "tips":
+      return <Tips onClose={close} />;
     case "changes":
       return <Changes tabId={modal.tabId} onClose={close} />;
     case "sessions":

@@ -5,6 +5,7 @@ import { sessionRows, SessionRow } from "../sessions";
 import { agentInfo, useApp } from "../store";
 import type { PastSession } from "../types";
 import { basename, fuzzyScore, timeAgo, tildify } from "../util";
+import { AgentIcon } from "./icons";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -149,9 +150,7 @@ function SessionItem({
   return (
     <div className={"session" + (active ? " active" : "")} onMouseMove={onHover} onClick={onPick}>
       <div className="session-line">
-        <span className="agent-tag" style={{ color: info?.color }}>
-          {row.agent}
-        </span>
+        <AgentIcon agent={row.agent} color={info?.color} label={info?.label} />
         <span className="session-title">{row.title}</span>
         {row.tab && (
           <span className={"session-state" + (hidden ? " hidden" : running ? " running" : "")}>

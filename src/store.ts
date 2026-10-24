@@ -41,8 +41,10 @@ export type ModalState =
       onSubmit: (value: string) => void;
     }
   | { kind: "move-tab"; tabId: string }
+  | { kind: "tag"; tabId: string }
   | { kind: "hooks" }
-  | { kind: "settings" }
+  | { kind: "settings"; section?: string }
+  | { kind: "tips" }
   | { kind: "sessions"; folder: string; groupId: string | null }
   | { kind: "changes"; tabId: string };
 

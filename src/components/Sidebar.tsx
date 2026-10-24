@@ -4,6 +4,7 @@ import * as actions from "../actions";
 import { attention, sharedCheckouts } from "../attention";
 import { isMac, key } from "../platform";
 import { agentInfo, sidebarTree, useApp } from "../store";
+import { tabTags } from "../tags";
 import type { DropPosition } from "../store";
 import type { Tab } from "../types";
 import { isCollapsed, MovePosition, Node, ownerGroupId, pathTo, subtreeTabs } from "../tree";
@@ -12,7 +13,9 @@ import { HiddenManager, ManagerAnchor } from "./HiddenManager";
 import { useHoverPopover, windowRect } from "./hover";
 import { MetricsBar, TabMetrics } from "./Metrics";
 import {
+  AgentIcon,
   HistoryIcon,
+  LightbulbIcon,
   CollapseAllIcon,
   ExpandAllIcon,
   EyeIcon,
@@ -23,6 +26,8 @@ import {
   TrashIcon,
   WindowIcon,
 } from "./icons";
+import { TagBadge, TagButton } from "./Tags";
+import { unseenTips } from "./Tips";
 
 interface MenuItem {
   label: string;
@@ -116,6 +121,11 @@ type Drop =
   | { kind: "tab"; node: string; target: string | null; position: DropPosition }
   | { kind: "node"; target: string; position: MovePosition };
 
+/** Whether the pointer is past the window's edges (a drag keeps reporting it there). */
+function outsideWindow(e: PointerEvent) {
+  return e.clientX < 0 || e.clientY < 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight;
+}
+
 interface Drag {
   kind: "tab" | "node";
   id: string;
@@ -143,6 +153,8 @@ function TabRow({
   // Other running agents in this tab's checkout (they may edit the same files).
   const sharing = useApp((s) => sharedCheckouts(s.tabs, s.agents).get(tab.id)?.join(", ") ?? "");
   const changes = tab.changes;
+  const defs = useApp((s) => s.config!.tags);
+  const tags = defs ? tabTags(tab, defs) : [];
   // Without its hooks the agent never reports status, so the dot, the attention pill and Changes stay idle.
   const noHooks = useApp((s) => !!tab.agent && tab.agentRunning && s.hooksInstalled[tab.agent] === false);
   const cls = [
@@ -172,6 +184,9 @@ function TabRow({
               <WindowIcon size={10} />
             </span>
           )}
+          {tags.map((tag) => (
+            <TagBadge key={tag.id} tab={tab} tag={tag} />
+          ))}
           <span className="tab-title">{tab.title}</span>
           {sharing && (
             <span
@@ -182,9 +197,7 @@ function TabRow({
             </span>
           )}
           {tab.agent && (
-            <span className="agent-tag" style={{ color: agentInfo(tab.agent)?.color }}>
-              {tab.agent}
-            </span>
+            <AgentIcon agent={tab.agent} color={agentInfo(tab.agent)?.color} label={agentInfo(tab.agent)?.label} />
           )}
           <span className="tab-time">{timeAgo(tab.updatedAt)}</span>
         </div>
@@ -225,18 +238,7 @@ function TabRow({
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
       >
-        {actions.canOpenInNewWindow(tab) && (
-          <button
-            className="tab-action"
-            onClick={(e) => {
-              e.stopPropagation();
-              void actions.openInNewWindow(tab.id);
-            }}
-            title="Open in new window"
-          >
-            <WindowIcon />
-          </button>
-        )}
+        <TagButton tab={tab} />
         <button
           className="tab-action"
           onClick={(e) => {
@@ -259,6 +261,21 @@ function TabRow({
         </button>
       </div>
     </div>
+  );
+}
+
+/** Opens the tips; a dot while some tips haven't been opened yet. */
+function TipsButton() {
+  const unseen = useApp((s) => unseenTips(s.config!.tipsSeen));
+  return (
+    <button
+      className="icon-btn tips-btn"
+      title={unseen ? `Tips — ${unseen} new` : "Tips"}
+      onClick={() => useApp.getState().openModal({ kind: "tips" })}
+    >
+      <LightbulbIcon />
+      {unseen > 0 && <span className="tips-dot" />}
+    </button>
   );
 }
 
@@ -457,6 +474,7 @@ export function Sidebar() {
       y: e.clientY,
       items: [
         { label: "Rename…", run: () => actions.renameTab(tab.id) },
+        { label: "Add tag…", run: () => s.openModal({ kind: "tag", tabId: tab.id }) },
         ...(actions.canOpenInNewWindow(tab)
           ? [{ label: "Open in new window", run: () => void actions.openInNewWindow(tab.id) }]
           : []),
@@ -552,17 +570,27 @@ export function Sidebar() {
         setDragId(d.id);
         document.body.classList.add("dragging-any");
       }
-      if (d.active) setDrop(dropAt(d, e.clientX, e.clientY));
+      if (!d.active) return;
+      const out = d.kind === "tab" && outsideWindow(e);
+      document.body.classList.toggle("tear-out", out);
+      setDrop(out ? null : dropAt(d, e.clientX, e.clientY));
     };
     const up = (e: PointerEvent) => {
       const d = drag.current;
       drag.current = null;
       setDrop(null);
       setDragId(null);
-      document.body.classList.remove("dragging-any");
+      document.body.classList.remove("dragging-any", "tear-out");
       if (!d?.active) return;
       suppressClick.current = true;
       setTimeout(() => (suppressClick.current = false), 0);
+      // Dropped outside the window: the tab gets a window of its own there, title bar under the pointer.
+      if (d.kind === "tab" && outsideWindow(e)) {
+        const tab = useApp.getState().tabs.find((t) => t.id === d.id);
+        if (tab && actions.canOpenInNewWindow(tab))
+          void actions.openInNewWindow(d.id, [e.screenX - 120, e.screenY - 14]);
+        return;
+      }
       const target = dropAt(d, e.clientX, e.clientY);
       const s = useApp.getState();
       if (target?.kind === "tab") s.moveTab(d.id, target.node, target.target, target.position);
@@ -748,13 +776,7 @@ export function Sidebar() {
           >
             <PanelIcon side={side} />
           </button>
-          <button
-            className="icon-btn"
-            title={`Command palette (${key("palette")})`}
-            onClick={() => useApp.getState().openModal({ kind: "palette" })}
-          >
-            {isMac ? "⌘K" : "Ctrl+⇧K"}
-          </button>
+          <TipsButton />
           <button
             className="icon-btn"
             title={`Settings (${key("settings")})`}

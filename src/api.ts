@@ -32,7 +32,7 @@ export const api = {
   detach: (tabId: string) => invoke<void>("pty_detach", { tabId }),
   handoffPut: (tabId: string, data: string) => invoke<void>("handoff_put", { tabId, data }),
   handoffTake: (tabId: string) => invoke<string | null>("handoff_take", { tabId }),
-  openWindow: (label: string) => invoke<void>("open_window", { label }),
+  openWindow: (label: string, at?: [number, number]) => invoke<void>("open_window", { label, at }),
   gitChanges: (path: string) => invoke<FileChange[]>("git_changes", { path }),
   gitFileDiff: (path: string, file: string, untracked: boolean) =>
     invoke<string>("git_file_diff", { path, file, untracked }),

@@ -929,14 +929,15 @@ async function stopTabs(ids: string[], verb: "Stop" | "Hide"): Promise<boolean> 
 // Each tab is shown in one window (`Tab.window`). Moving it hands its screen over and keeps its shell.
 
 /** Moves the tab to a new window of its own. */
-export async function openInNewWindow(tabId: string) {
+/** Moves a tab to a new window; `at` places the window's top-left (screen points), else it cascades. */
+export async function openInNewWindow(tabId: string, at?: [number, number]) {
   const tab = tabById(tabId);
   if (!tab) return;
   if (!isMine(tab)) return void emitTo(tab.window ?? "main", "give-tab", { tabId, to: null });
   const label = newId("w-");
   useApp.setState({ windows: [...get().windows, { label, activeId: tabId }] });
   await handOver(tabId, label);
-  await api.openWindow(label);
+  await api.openWindow(label, at);
 }
 
 /** Brings a tab shown in another window over to this one. */
@@ -982,8 +983,13 @@ async function onGiveTab({ tabId, to }: { tabId: string; to: string | null }) {
   const tab = tabById(tabId);
   if (!tab || !isMine(tab)) return;
   if (!to) return openInNewWindow(tabId);
+  // An extra window giving away its last tab closes: the other window shows it now. (Set first, so it
+  // doesn't take another tab when its own goes.)
+  const last = get().me !== "main" && get().tabs.filter(isMine).length === 1;
+  if (last) closing = true;
   await handOver(tabId, to);
   void emitTo(to, "reveal-tab", tabId);
+  if (last) await closeWindow();
 }
 
 /** Closing a window besides the main one: its tabs go back to the main window, still running. */

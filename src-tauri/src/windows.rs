@@ -19,9 +19,10 @@ pub fn handoff_take(handoffs: State<'_, Handoffs>, tab_id: String) -> Option<Str
     handoffs.0.lock().unwrap().remove(&tab_id)
 }
 
-/// Opens (or focuses) the window `label`, set up like the main window.
+/// Opens (or focuses) the window `label`, set up like the main window. `at` is where its top-left goes, in
+/// logical screen points (a tab dragged out of a window); otherwise it cascades from the focused window.
 #[tauri::command]
-pub fn open_window(app: AppHandle, label: String) -> Result<(), String> {
+pub fn open_window(app: AppHandle, label: String, at: Option<(f64, f64)>) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
         return window.set_focus().map_err(|e| e.to_string());
     }
@@ -30,7 +31,11 @@ pub fn open_window(app: AppHandle, label: String) -> Result<(), String> {
     let mut builder = WebviewWindowBuilder::from_config(&app, &config).map_err(|e| e.to_string())?;
     // Cascade from the focused window so the new one doesn't hide it exactly.
     let from = app.webview_windows().into_values().find(|w| w.is_focused().unwrap_or(false));
-    if let Some((pos, scale)) = from.and_then(|w| Some((w.outer_position().ok()?, w.scale_factor().ok()?))) {
+    if let Some((x, y)) = at {
+        builder = builder.position(x, y);
+    } else if let Some((pos, scale)) =
+        from.and_then(|w| Some((w.outer_position().ok()?, w.scale_factor().ok()?)))
+    {
         let pos = pos.to_logical::<f64>(scale);
         builder = builder.position(pos.x + 40.0, pos.y + 40.0);
     }

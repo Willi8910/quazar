@@ -61,8 +61,37 @@ export interface Tab {
   window?: string;
   /** Uncommitted changes in the tab's checkout, as of the agent's last turn (see `git_changes`). */
   changes?: ChangeCount | null;
+  /** Ids of the tab's tags (`Config.tags`). */
+  tags?: string[];
   createdAt: number;
   updatedAt: number;
+}
+
+export type TagColor =
+  | "red"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "teal"
+  | "blue"
+  | "purple"
+  | "gray"
+  | "rose"
+  | "clay"
+  | "sand"
+  | "sage"
+  | "sea"
+  | "steel"
+  | "mauve"
+  | "stone";
+
+/** A tag the user made; tabs refer to it by id. */
+export interface TagDef {
+  id: string;
+  name: string;
+  /** Free text; the swap menu lists tags of the same category first. */
+  category: string;
+  color: TagColor;
 }
 
 export interface ChangeCount {
@@ -110,6 +139,10 @@ export interface Config {
   projectRoots: string[];
   scanDepth: number;
   profiles: Profile[];
+  /** Ids of the tips the user has opened (the tips button shows a dot while some are new). */
+  tipsSeen?: string[];
+  /** Tags for tabs, in the user's order. */
+  tags?: TagDef[];
   /** Shell commands run in order right before every agent launch and resume, e.g. `usa`. */
   preLaunch: string[];
   lastProfileId?: string;

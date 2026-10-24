@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as actions from "../actions";
 import { api } from "../api";
 import { LAUNCH_OPTIONS, profileAgent } from "../launch";
@@ -7,8 +7,10 @@ import { key } from "../platform";
 import { DEFAULT_RECENT_SKILLS } from "../skills";
 import { useApp } from "../store";
 import * as terms from "../terminals";
-import type { Config, LaunchOption, Profile } from "../types";
+import { TAG_COLORS, tagCategories } from "../tags";
+import type { Config, LaunchOption, Profile, TagDef } from "../types";
 import { newId, tildify, untildify } from "../util";
+import { ColorSwatches, deleteTag, setTags } from "./Tags";
 
 const set = (patch: Partial<Config>) => {
   useApp.getState().setConfig(patch);
@@ -223,14 +225,157 @@ function NotificationSettings({ config }: { config: Config }) {
   );
 }
 
-const SECTIONS = ["Agents", "Notifications", "Appearance", "Projects"] as const;
+/** Every tag, in the user's order: rename, recategorise, recolour, delete, and drag to reorder. */
+function Tags({ tags }: { tags: TagDef[] }) {
+  const tabs = useApp((s) => s.tabs);
+  const [colorOf, setColorOf] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [drag, setDrag] = useState<{ id: string; to: number } | null>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const update = (id: string, patch: Partial<TagDef>) =>
+    setTags(tags.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  const uses = (id: string) => tabs.filter((t) => t.tags?.includes(id)).length;
+
+  /** Where a drag at `y` would drop: the index of the first row whose middle is below it. */
+  const dropIndex = (y: number) => {
+    const rows = Array.from(list.current?.querySelectorAll<HTMLElement>(".tag-row") ?? []);
+    const i = rows.findIndex((r) => {
+      const b = r.getBoundingClientRect();
+      return y < b.top + b.height / 2;
+    });
+    return i < 0 ? rows.length : i;
+  };
+  const onHandleDown = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ id, to: tags.findIndex((t) => t.id === id) });
+  };
+  const onHandleMove = (e: React.PointerEvent) => drag && setDrag({ ...drag, to: dropIndex(e.clientY) });
+  const onHandleUp = () => {
+    if (!drag) return;
+    const from = tags.findIndex((t) => t.id === drag.id);
+    const to = drag.to > from ? drag.to - 1 : drag.to;
+    setDrag(null);
+    if (from < 0 || to === from) return;
+    const next = tags.filter((t) => t.id !== drag.id);
+    next.splice(to, 0, tags[from]);
+    setTags(next);
+  };
+
+  return (
+    <div className="profile-rows tag-rows" ref={list}>
+      {tags.length === 0 && (
+        <div className="field-hint">No tags yet. Add one here, or from a tab's tag button in the sidebar.</div>
+      )}
+      {tags.map((t, i) => {
+        const n = uses(t.id);
+        const dropCls = !drag
+          ? ""
+          : drag.to === i
+            ? " drop-before"
+            : drag.to === tags.length && i === tags.length - 1
+              ? " drop-after"
+              : "";
+        return (
+          <div className={"tag-row" + (drag?.id === t.id ? " dragging" : "") + dropCls} key={t.id}>
+            <div className="profile-row">
+              <span
+                className="tag-handle"
+                title="Drag to reorder"
+                onPointerDown={(e) => onHandleDown(e, t.id)}
+                onPointerMove={onHandleMove}
+                onPointerUp={onHandleUp}
+                onPointerCancel={onHandleUp}
+              >
+                ⋮⋮
+              </span>
+              <button
+                className="tag-color-btn"
+                style={{ background: TAG_COLORS[t.color] }}
+                title="Colour"
+                onClick={() => setColorOf(colorOf === t.id ? null : t.id)}
+              />
+              <input
+                className="input name"
+                value={t.name}
+                placeholder="Name"
+                onChange={(e) => update(t.id, { name: e.target.value })}
+                spellCheck={false}
+              />
+              <input
+                className="input tag-category"
+                list="settings-tag-categories"
+                value={t.category}
+                placeholder="Category"
+                onChange={(e) => update(t.id, { category: e.target.value })}
+                spellCheck={false}
+              />
+              <span className="tag-uses">{n ? `${n} tab${n === 1 ? "" : "s"}` : "unused"}</span>
+              {confirm === t.id ? (
+                <button
+                  className="btn small danger"
+                  onClick={() => {
+                    setConfirm(null);
+                    deleteTag(t.id);
+                  }}
+                  onBlur={() => setConfirm(null)}
+                  autoFocus
+                >
+                  Delete
+                </button>
+              ) : (
+                <button
+                  className="icon-btn danger"
+                  title={n ? `Delete — also removes it from ${n} tab${n === 1 ? "" : "s"}` : "Delete tag"}
+                  onClick={() => (n ? setConfirm(t.id) : deleteTag(t.id))}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+            {colorOf === t.id && (
+              <div className="tag-row-colors">
+                <ColorSwatches
+                  value={t.color}
+                  onChange={(color) => {
+                    update(t.id, { color });
+                    setColorOf(null);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <datalist id="settings-tag-categories">
+        {tagCategories(tags).map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
+      <button
+        className="link-btn"
+        onClick={() => {
+          const id = newId("tag");
+          setTags([...tags, { id, name: "New tag", category: "", color: "blue" }]);
+          setColorOf(id);
+        }}
+      >
+        ＋ Add tag
+      </button>
+    </div>
+  );
+}
+
+const SECTIONS = ["Agents", "Tags", "Notifications", "Appearance", "Projects"] as const;
 type Section = (typeof SECTIONS)[number];
 /** Reopening Settings returns to the last section. */
 let lastSection: Section = "Agents";
 
-export function Settings({ onClose }: { onClose: () => void }) {
+export function Settings({ onClose, initial }: { onClose: () => void; initial?: string }) {
   const config = useApp((s) => s.config)!;
-  const [section, setSection] = useState<Section>(lastSection);
+  const [section, setSection] = useState<Section>(() =>
+    SECTIONS.includes(initial as Section) ? (lastSection = initial as Section) : lastSection,
+  );
   const show = (s: Section) => setSection((lastSection = s));
 
   useEffect(() => {
@@ -314,6 +459,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
             </>
           )}
 
+          {section === "Tags" && (
+            <Field
+              label="Tags"
+              hint="Shown before a tab's name, in this order. Clicking a tag on a tab swaps it for another; tags of the same category are listed first."
+            >
+              <Tags tags={config.tags ?? []} />
+            </Field>
+          )}
           {section === "Notifications" && <NotificationSettings config={config} />}
 
           {section === "Appearance" && (
