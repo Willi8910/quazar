@@ -234,6 +234,7 @@ pub fn run() {
 
     app.run(|app, event| {
         // Dock icon clicked with no window showing: bring back the main window.
+        #[cfg(target_os = "macos")]
         if let RunEvent::Reopen { has_visible_windows: false, .. } = event {
             if let Some(main) = app.get_webview_window("main") {
                 let _ = main.show();
