@@ -23,6 +23,7 @@ import { Onboarding } from "./components/Onboarding";
 import { TabResources } from "./components/Metrics";
 import { Sidebar } from "./components/Sidebar";
 import { launchCommand, profileAgent } from "./launch";
+import { fileManager, isMac, key } from "./platform";
 import { agentInfo, useApp } from "./store";
 import * as terms from "./terminals";
 import { basename, tildify } from "./util";
@@ -95,13 +96,13 @@ function TerminalArea() {
             className="btn primary"
             onClick={() => useApp.getState().openModal({ kind: "launcher", mode: "agent" })}
           >
-            New agent <kbd>⌘N</kbd>
+            New agent <kbd>{key("new-agent")}</kbd>
           </button>
           <button className="btn" onClick={() => useApp.getState().openModal({ kind: "launcher", mode: "tab" })}>
-            New tab <kbd>⌘T</kbd>
+            New tab <kbd>{key("new-tab")}</kbd>
           </button>
           <button className="btn" onClick={() => useApp.getState().openModal({ kind: "palette" })}>
-            Commands <kbd>⌘K</kbd>
+            Commands <kbd>{key("palette")}</kbd>
           </button>
         </div>
       )}
@@ -127,7 +128,7 @@ function PathLink({
   return (
     <button
       className={className + " path-link"}
-      title={`${tildify(path)}\nClick to copy · double-click to open in Finder`}
+      title={`${tildify(path)}\nClick to copy · double-click to open in ${fileManager}`}
       onClick={() => {
         // Wait to see whether this is the first click of a double-click.
         window.clearTimeout(timer.current);
@@ -279,7 +280,7 @@ function TopBar() {
   const showSidebar = hidden && (
     <button
       className={"icon-btn topbar-panel " + side}
-      title="Show sidebar (⌘B)"
+      title={`Show sidebar (${key("toggle-sidebar")})`}
       onClick={() => useApp.setState({ sidebarHidden: false })}
     >
       <PanelIcon side={side} />
@@ -302,7 +303,7 @@ function TopBar() {
     void api.gitBranch(repoPath).then(setBranch, () => setBranch(null));
   }, [repoPath, tab?.status, prompts]);
   return (
-    <div className={"topbar" + (lights ? " lights" : "")} data-tauri-drag-region>
+    <div className={"topbar" + (lights && isMac ? " lights" : "")} data-tauri-drag-region>
       {side === "left" && showSidebar}
       {tab && (
         <>

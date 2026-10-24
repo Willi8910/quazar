@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { key, modKey } from "../platform";
 
 export interface PickerItem {
   id: string;
@@ -14,7 +15,7 @@ interface Props {
   onClose: () => void;
   header?: ReactNode;
   footer?: ReactNode;
-  /** Multi-select: Enter toggles, ⌘Enter confirms with the selected ids. */
+  /** Multi-select: Enter toggles, ⌘Enter (Ctrl+Enter on Windows) confirms with the selected ids. */
   multi?: { initial: string[]; onConfirm: (ids: string[]) => void };
   /** Extra key handling (e.g. Tab to cycle profiles); return true when handled. */
   onKey?: (e: React.KeyboardEvent) => boolean;
@@ -57,7 +58,7 @@ export function Picker({ placeholder, items, onClose, header, footer, multi, onK
       setIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (multi && e.metaKey) {
+      if (multi && modKey(e)) {
         onClose();
         multi.onConfirm(selected);
       } else pick(list[index]);
@@ -99,7 +100,7 @@ export function Picker({ placeholder, items, onClose, header, footer, multi, onK
         {multi ? (
           <div className="picker-footer">
             <span>
-              {selected.length} selected · Enter toggles · ⌘Enter saves
+              {selected.length} selected · Enter toggles · {key("confirm")} saves
             </span>
             <button
               className="btn primary"

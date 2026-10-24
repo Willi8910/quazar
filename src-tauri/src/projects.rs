@@ -2,11 +2,11 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use serde::Serialize;
 
 use crate::paths::expand_home;
+use crate::platform::command;
 
 const SKIP: &[&str] = &["node_modules", "target", "vendor", "dist", "build", "Pods", "venv"];
 
@@ -55,7 +55,7 @@ pub fn git_root(path: String) -> Option<String> {
 }
 
 fn git_lines(path: &str, args: &[&str]) -> Option<Vec<String>> {
-    let out = Command::new("git").arg("-C").arg(path).args(args).output().ok()?;
+    let out = command("git").arg("-C").arg(path).args(args).output().ok()?;
     out.status.success()
         .then(|| String::from_utf8_lossy(&out.stdout).lines().map(str::to_string).collect())
 }
@@ -74,11 +74,10 @@ pub fn worktree_root(path: String) -> Option<String> {
     (git_dir != common_dir).then(|| top.clone())
 }
 
-/// Opens `path` in Finder.
+/// Opens `path` in Finder (Explorer on Windows).
 #[tauri::command]
 pub fn open_in_finder(path: String) -> Result<(), String> {
-    let status = Command::new("open").arg(expand_home(&path)).status().map_err(|e| e.to_string())?;
-    status.success().then_some(()).ok_or_else(|| format!("Couldn't open {path} in Finder."))
+    crate::platform::reveal(&expand_home(&path))
 }
 
 /// The branch checked out at `path`, or the short commit when HEAD is detached.
@@ -106,11 +105,7 @@ pub fn open_in_vscode(paths: Vec<String>) -> Result<String, String> {
         .and_then(|lines| lines.into_iter().next())
         .filter(|dir| !dir.is_empty())
         .unwrap_or(path);
-    let status = Command::new("open")
-        .args(["-b", "com.microsoft.VSCode", &dir])
-        .status()
-        .map_err(|e| e.to_string())?;
-    if !status.success() {
+    if !crate::platform::open_in_vscode(&dir).map_err(|e| e.to_string())? {
         return Err("Visual Studio Code doesn't seem to be installed.".into());
     }
     Ok(dir)
@@ -131,7 +126,7 @@ pub struct FileChange {
 const DIFF_MAX: usize = 300 * 1024;
 
 fn git_output(dir: &str, args: &[&str]) -> Option<Vec<u8>> {
-    Command::new("git").arg("-C").arg(dir).args(args).output().ok().map(|out| out.stdout)
+    command("git").arg("-C").arg(dir).args(args).output().ok().map(|out| out.stdout)
 }
 
 fn checkout_root(path: &str) -> Option<String> {
@@ -218,7 +213,7 @@ mod tests {
     use super::*;
 
     fn git(dir: &Path, args: &[&str]) {
-        assert!(Command::new("git").arg("-C").arg(dir).args(args).status().unwrap().success());
+        assert!(std::process::Command::new("git").arg("-C").arg(dir).args(args).status().unwrap().success());
     }
 
     #[test]

@@ -8,6 +8,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { api } from "./api";
 import { busyIn, nextAttention } from "./attention";
 import { launchCommand, profileAgent } from "./launch";
+import { fileManager, isWindows, joinCommands, windowsShortcut } from "./platform";
 import type { SessionRow } from "./sessions";
 import {
   agentInfo,
@@ -156,7 +157,7 @@ export function revealInFinder(path: string) {
   api.openInFinder(path).catch(
     (e) =>
       void message(String(e), {
-        title: "Couldn't open Finder",
+        title: `Couldn't open ${fileManager}`,
         kind: "error",
       }),
   );
@@ -262,7 +263,7 @@ export async function copyResumeCommand(id: string) {
     });
     return;
   }
-  await navigator.clipboard.writeText(`cd ${shellQuote(tab!.cwd)} && ${cmd}`);
+  await navigator.clipboard.writeText(joinCommands([`cd ${shellQuote(tab!.cwd)}`, cmd]));
 }
 
 /** Adds an empty "New Group" at the top level, or inside `parent` (a group id or folder group key). */
@@ -485,6 +486,31 @@ export async function installHooks(agent: string) {
       kind: "error",
     });
   }
+}
+
+/** Installs (or refreshes) the hooks of every supported agent, with one summary at the end. */
+export async function installAllHooks(agents: string[]) {
+  const done: string[] = [];
+  const failed: string[] = [];
+  for (const agent of agents) {
+    const label = agentInfo(agent)?.label ?? agent;
+    try {
+      const path = await api.installHooks(agent);
+      const note = agentInfo(agent)?.installNote;
+      done.push(`• ${label}: ${tildify(path)}${note ? `\n  ${note}` : ""}`);
+    } catch (err) {
+      failed.push(`• ${label}: ${String(err)}`);
+    }
+  }
+  void loadHookStatus();
+  const parts = [
+    done.length ? `Quazar hooks added for:\n${done.join("\n")}` : "",
+    failed.length ? `Couldn't install for:\n${failed.join("\n")}` : "",
+  ];
+  await message(parts.filter(Boolean).join("\n\n"), {
+    title: failed.length ? "Some hooks weren't installed" : "Hooks installed",
+    kind: failed.length ? "warning" : "info",
+  });
 }
 
 // ---------- quitting ----------
@@ -1016,6 +1042,19 @@ export async function init() {
   await listenHere<{ tabId: string; to: string | null }>("give-tab", (ask) => void onGiveTab(ask));
   await listenHere("window-close", () => void closeWindow());
   await listenHere<string>("menu", (id) => onMenu(id));
+  // Windows has no app menu (its Ctrl shortcuts would take keys from the shell): the window handles them.
+  if (isWindows)
+    window.addEventListener(
+      "keydown",
+      (e) => {
+        const id = windowsShortcut(e);
+        if (!id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onMenu(id.startsWith("goto-tab:") ? `tab-${id.slice(9)}` : id);
+      },
+      true,
+    );
   await listen<ShellEvent>("shell-event", (e) => onShellEvent(e.payload));
   await listen<AgentEvent>("agent-event", (e) => onAgentEvent(e.payload));
   await listen<string>("notification-clicked", (e) => void onNotificationClicked(e.payload));
@@ -1027,7 +1066,7 @@ export async function init() {
   await getCurrentWebview().onDragDropEvent((e) => {
     const id = get().activeId;
     if (e.payload.type === "drop" && id && e.payload.paths.length) {
-      terms.writeInput(id, e.payload.paths.map(shellQuote).join(" ") + " ");
+      terms.writeInput(id, e.payload.paths.map((word) => shellQuote(word)).join(" ") + " ");
       terms.focus(id);
     }
   });

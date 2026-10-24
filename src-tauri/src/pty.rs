@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
@@ -72,11 +72,36 @@ impl Ptys {
     }
 }
 
+#[cfg(unix)]
 fn user_shell() -> String {
     std::env::var("SHELL")
         .ok()
-        .filter(|s| Path::new(s).exists())
+        .filter(|s| std::path::Path::new(s).exists())
         .unwrap_or_else(|| "/bin/zsh".into())
+}
+
+/// PowerShell 7 when installed, else the Windows PowerShell every Windows has.
+#[cfg(windows)]
+fn user_shell() -> String {
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let pwsh = std::env::split_paths(&path).any(|dir| dir.join("pwsh.exe").is_file());
+    if pwsh { "pwsh.exe" } else { "powershell.exe" }.into()
+}
+
+const PWSH_INTEGRATION: &str = include_str!("../integration/pwsh/quazar.ps1");
+
+/// A script as PowerShell's `-EncodedCommand` wants it: base64 of its UTF-16LE text.
+fn encoded_command(script: &str) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let bytes: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = chunk.iter().enumerate().fold(0u32, |n, (i, b)| n | (*b as u32) << (16 - 8 * i));
+        for i in 0..4 {
+            out.push(if i <= chunk.len() { ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char } else { '=' });
+        }
+    }
+    out
 }
 
 fn size(cols: u16, rows: u16) -> PtySize {
@@ -104,7 +129,13 @@ pub fn pty_spawn(
     let pair = native_pty_system().openpty(size(cols, rows)).map_err(|e| e.to_string())?;
     let shell = user_shell();
     let mut cmd = CommandBuilder::new(&shell);
-    cmd.arg("-l");
+    if cfg!(windows) {
+        // The integration goes in as an encoded command, not a script file, so it runs whatever the
+        // execution policy (Windows PowerShell blocks scripts by default). The user's profile loads first.
+        cmd.args(["-NoLogo", "-NoExit", "-EncodedCommand", &encoded_command(PWSH_INTEGRATION)]);
+    } else {
+        cmd.arg("-l");
+    }
 
     // Quazar may itself have been started from inside an agent (e.g. `npm run tauri dev` in Claude
     // Code). Its session variables would make agents in our tabs run as that agent's child sessions,
@@ -127,6 +158,8 @@ pub fn pty_spawn(
         let user_zdotdir = std::env::var("ZDOTDIR").unwrap_or_else(|_| home_dir().display().to_string());
         cmd.env("QUAZAR_USER_ZDOTDIR", user_zdotdir);
         cmd.env("ZDOTDIR", &paths.zsh_dir);
+    }
+    if shell.ends_with("zsh") || cfg!(windows) {
         if let Some(prefill) = prefill.filter(|p| !p.is_empty()) {
             cmd.env("QUAZAR_PREFILL", prefill);
         }
@@ -214,6 +247,14 @@ pub fn pty_detach(ptys: State<'_, Ptys>, tab_id: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encodes_powershell_commands() {
+        // [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes("ls")) in PowerShell.
+        assert_eq!(encoded_command("ls"), "bABzAA==");
+        assert_eq!(encoded_command("dir"), "ZABpAHIA");
+        assert_eq!(encoded_command("é"), "6QA=");
+    }
 
     #[test]
     fn buffers_output_while_detached() {

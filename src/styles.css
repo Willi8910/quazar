@@ -2013,14 +2013,42 @@ body.dragging-frame * {
 
 /* ---------- first-launch setup ---------- */
 
-.drawer.onboarding {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-  width: min(520px, calc(100vw - 32px));
-  padding: 14px 16px;
+.onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #00000066;
+  animation: onboarding-fade 0.18s ease-out;
 }
-.drawer.onboarding p {
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(520px, 100%);
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px #000a;
+  font-size: 13px;
+  animation: onboarding-in 0.2s ease-out;
+}
+@keyframes onboarding-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes onboarding-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.onboarding p {
   margin: 0;
   color: var(--muted);
   line-height: 1.5;
@@ -2092,4 +2120,16 @@ body.dragging-frame * {
 }
 .notify-bell {
   font-size: 15px;
+}
+
+.hooks-all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 0;
+}
+.hooks-all .btn.small {
+  min-width: 0;
+  padding: 5px 12px;
 }

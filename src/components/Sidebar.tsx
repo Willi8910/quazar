@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as actions from "../actions";
 import { attention, sharedCheckouts } from "../attention";
+import { isMac, key } from "../platform";
 import { agentInfo, sidebarTree, useApp } from "../store";
 import type { DropPosition } from "../store";
 import type { Tab } from "../types";
@@ -355,7 +356,7 @@ function AttentionList({
     <div ref={panelRef} className="ctx attention-list" style={{ left, top: anchor.top, width }}>
       <div className="hm-head">
         <span>Needs you</span>
-        <span className="metrics-note">⌘J for the next</span>
+        <span className="metrics-note">{key("next-attention")} for the next</span>
       </div>
       {queue.length === 0 && <div className="hm-empty">Nothing right now.</div>}
       {queue.map((t) => (
@@ -735,28 +736,28 @@ export function Sidebar() {
         style={{ zoom, width: width / zoom, "--z": zoom } as React.CSSProperties}
         onClickCapture={(e) => suppressClick.current && e.stopPropagation()}
       >
-        <div className={"sidebar-head" + (side === "left" ? " lights" : "")} data-tauri-drag-region>
+        <div className={"sidebar-head" + (side === "left" && isMac ? " lights" : "")} data-tauri-drag-region>
           <span className="brand" data-tauri-drag-region title={`Quazar ${actions.versionText()}`}>
             Quazar
           </span>
           <UpdateButton />
           <button
             className="icon-btn"
-            title="Hide sidebar (⌘B)"
+            title={`Hide sidebar (${key("toggle-sidebar")})`}
             onClick={() => useApp.setState({ sidebarHidden: true })}
           >
             <PanelIcon side={side} />
           </button>
           <button
             className="icon-btn"
-            title="Command palette (⌘K)"
+            title={`Command palette (${key("palette")})`}
             onClick={() => useApp.getState().openModal({ kind: "palette" })}
           >
-            ⌘K
+            {isMac ? "⌘K" : "Ctrl+⇧K"}
           </button>
           <button
             className="icon-btn"
-            title="Settings (⌘,)"
+            title={`Settings (${key("settings")})`}
             onClick={() => useApp.getState().openModal({ kind: "settings" })}
           >
             {/* Lucide "settings" gear (ISC license). */}
@@ -816,7 +817,7 @@ export function Sidebar() {
             <div className="sidebar-empty">
               No tabs yet.
               <br />
-              ⌘T new tab · ⌘N new agent
+              {key("new-tab")} new tab · {key("new-agent")} new agent
             </div>
           )}
         </div>

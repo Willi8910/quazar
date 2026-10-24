@@ -4,6 +4,7 @@ mod hooks;
 mod metrics;
 mod notifications;
 mod paths;
+mod platform;
 mod projects;
 mod pty;
 mod store;
@@ -50,6 +51,7 @@ fn detect_launch(cmdline: String) -> Option<agents::Launch> {
     agents::detect_launch(&cmdline)
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let item = |id: &str, label: &str, accel: &str| {
         MenuItemBuilder::with_id(id, label).accelerator(accel).build(app)
@@ -110,6 +112,18 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     Menu::with_items(app, &[&app_menu, &edit_menu, &tabs_menu, &view_menu, &window_menu])
 }
 
+/// Runs `quazar hook <agent> <event>` (see [`events::forward_hook`]) and returns true; false when
+/// Quazar wasn't started that way.
+pub fn hook_mode() -> bool {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let [mode, agent, event] = args.as_slice() else { return false };
+    if mode != "hook" {
+        return false;
+    }
+    events::forward_hook(agent, event);
+    true
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
@@ -131,6 +145,9 @@ pub fn run() {
             events::listen(app.handle().clone(), &paths.socket)?;
             notifications::install(app.handle());
             app.manage(paths);
+            // Windows gets no menu bar: its Ctrl shortcuts would take keys from the shell; the frontend
+            // handles Ctrl+Shift shortcuts there instead.
+            #[cfg(target_os = "macos")]
             app.set_menu(build_menu(app.handle())?)?;
             app.on_menu_event(|app, event| {
                 // Only the window in front acts on menu commands (⌘T opens one tab, not one per window).

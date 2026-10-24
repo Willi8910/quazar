@@ -47,6 +47,11 @@ objc2-user-notifications = { version = "0.3", features = [
   "block2",
 ] }
 
+[target.'cfg(windows)'.dependencies]
+# The named pipe for shell and hook events (see events.rs).
+interprocess = "2.4.6"
+# Process metrics (see metrics.rs); macOS uses `ps` instead.
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { attention, busyIn } from "../attention";
 import { Changes } from "./Changes";
 import * as actions from "../actions";
+import { fileManager, key } from "../platform";
 import { api } from "../api";
 import { agentInfo, useApp } from "../store";
 import { groupPath, NO_GROUP } from "../tree";
@@ -96,7 +97,7 @@ function Launcher({ mode, groupId }: { mode: "tab" | "agent"; groupId?: string |
         <>
           <button
             className="picker-input-btn"
-            title="Open a folder from Finder…"
+            title={`Open a folder from ${fileManager}…`}
             onClick={() => {
               close();
               void actions.newTabInPickedFolder(profile?.command ? profile : undefined, groupId ?? null);
@@ -214,11 +215,33 @@ function Hooks() {
       })),
     [status],
   );
+  const missing = status.filter((s) => !s.installed).length;
+  const [installing, setInstalling] = useState(false);
+  const installAll = async () => {
+    setInstalling(true);
+    await actions.installAllHooks(status.map((s) => s.agent));
+    setStatus(await api.hooksStatus());
+    setInstalling(false);
+  };
   return (
     <Picker
       placeholder="Agent hooks report status and summaries to Quazar…"
       items={items}
       onClose={close}
+      header={
+        status.length > 1 && (
+          <div className="hooks-all">
+            <span className="field-hint">
+              {missing
+                ? `${missing} of ${status.length} agents without hooks`
+                : `Installed for all ${status.length} agents ✓`}
+            </span>
+            <button className="btn small primary" disabled={installing} onClick={() => void installAll()}>
+              {installing ? "Installing…" : missing ? "Install for all agents" : "Reinstall all"}
+            </button>
+          </div>
+        )
+      }
       footer={
         <div className="picker-footer muted">
           Adds a small hook that only does something inside Quazar. Your existing hooks are kept; a backup is saved next
@@ -235,8 +258,8 @@ function Palette() {
     const active = s.tabs.find((t) => t.id === s.activeId);
     const cmd = (id: string, label: string, run: () => void, hint?: string): PickerItem => ({ id, label, run, hint });
     const commands: PickerItem[] = [
-      cmd("new-tab", "New tab…", () => s.openModal({ kind: "launcher", mode: "tab" }), "⌘T"),
-      cmd("new-agent", "New agent…", () => s.openModal({ kind: "launcher", mode: "agent" }), "⌘N"),
+      cmd("new-tab", "New tab…", () => s.openModal({ kind: "launcher", mode: "tab" }), key("new-tab")),
+      cmd("new-agent", "New agent…", () => s.openModal({ kind: "launcher", mode: "agent" }), key("new-agent")),
       ...s
         .config!.profiles.filter((p) => p.command && active)
         .map((p) =>
@@ -244,10 +267,10 @@ function Palette() {
         ),
       cmd("new-group", "New group", () => actions.newGroup()),
       cmd("quick-terminal", "Quick terminal (plain shell in ~)", actions.newQuickTerminal),
-      cmd("attention", "Next agent needing you", actions.nextNeedingYou, "⌘J"),
+      cmd("attention", "Next agent needing you", actions.nextNeedingYou, key("next-attention")),
       ...(active
         ? [
-            cmd("rename", "Rename tab…", () => actions.renameTab(active.id), "⇧⌘R"),
+            cmd("rename", "Rename tab…", () => actions.renameTab(active.id), key("rename-tab")),
             cmd("move", "Move tab to group…", () => s.openModal({ kind: "move-tab", tabId: active.id })),
             ...(actions.canOpenInNewWindow(active)
               ? [cmd("new-window", "Open tab in new window", () => void actions.openInNewWindow(active.id))]
@@ -267,7 +290,7 @@ function Palette() {
               ? [cmd("fork", "Fork session into a new tab", () => void actions.forkTab(active.id))]
               : []),
             cmd("resume", "Copy resume command", () => void actions.copyResumeCommand(active.id)),
-            cmd("close", "Close tab", () => void actions.closeTab(active.id), "⌘W"),
+            cmd("close", "Close tab", () => void actions.closeTab(active.id), key("close-tab")),
           ]
         : []),
       cmd(
@@ -275,7 +298,7 @@ function Palette() {
         `Group tabs by folder: ${s.config!.autoGroup ? "on → off" : "off → on"}`,
         actions.toggleAutoGroup,
       ),
-      cmd("side", "Move sidebar left/right", actions.toggleSidebarSide, "⇧⌘B"),
+      cmd("side", "Move sidebar left/right", actions.toggleSidebarSide, key("sidebar-side")),
       cmd("labels", `Header button labels: ${(s.config!.headerLabels ?? true) ? "on → off" : "off → on"}`, () => {
         s.setConfig({ headerLabels: !(s.config!.headerLabels ?? true) });
         actions.saveConfig();
@@ -291,9 +314,9 @@ function Palette() {
         actions.toggleShowHiddenTabs,
       ),
       cmd("unhide-all", "Unhide everything", actions.unhideAll),
-      cmd("hide", "Toggle sidebar", () => useApp.setState({ sidebarHidden: !s.sidebarHidden }), "⌘B"),
+      cmd("hide", "Toggle sidebar", () => useApp.setState({ sidebarHidden: !s.sidebarHidden }), key("toggle-sidebar")),
       cmd("hooks", "Install agent hooks…", () => s.openModal({ kind: "hooks" })),
-      cmd("settings", "Settings…", () => s.openModal({ kind: "settings" }), "⌘,"),
+      cmd("settings", "Settings…", () => s.openModal({ kind: "settings" }), key("settings")),
       cmd("about", `About Quazar (${actions.versionText()})`, () => s.showToast(`Quazar ${actions.versionText()}`)),
       ...(s.update?.phase === "ready"
         ? [cmd("update", "Restart to update Quazar", actions.installUpdate)]

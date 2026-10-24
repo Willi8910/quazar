@@ -2,8 +2,6 @@
 //! answers "granted" on desktop (so Quazar couldn't tell they're off) and can't say which
 //! notification was clicked (so it couldn't open the tab).
 
-use std::process::Command;
-
 use tauri::AppHandle;
 
 /// Starts listening for clicks on Quazar's notifications: each emits `notification-clicked` with the
@@ -37,7 +35,7 @@ pub async fn request_notification_permission() -> &'static str {
 pub fn open_notification_settings(app: tauri::AppHandle) -> Result<(), String> {
     let id = &app.config().identifier;
     let url = format!("x-apple.systempreferences:com.apple.Notifications-Settings.extension?id={id}");
-    let status = Command::new("open").arg(url).status().map_err(|e| e.to_string())?;
+    let status = crate::platform::command("open").arg(url).status().map_err(|e| e.to_string())?;
     status.success().then_some(()).ok_or_else(|| "Couldn't open System Settings".into())
 }
 

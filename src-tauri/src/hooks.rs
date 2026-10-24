@@ -14,10 +14,32 @@ use crate::paths::{write_atomic, Paths};
 
 const MARKER: &str = "quazar-hook";
 
+/// The `quazar-hook` script, or Quazar's own hook mode (`…/quazar.exe hook <agent> <event>`, Windows).
+fn is_our_command(command: &str) -> bool {
+    command.contains(MARKER) || (command.to_lowercase().contains("quazar") && command.contains(" hook "))
+}
+
 fn is_ours(group: &Value) -> bool {
     group["hooks"]
         .as_array()
-        .is_some_and(|hooks| hooks.iter().any(|h| h["command"].as_str().is_some_and(|c| c.contains(MARKER))))
+        .is_some_and(|hooks| hooks.iter().any(|h| h["command"].as_str().is_some_and(is_our_command)))
+}
+
+/// The command an agent runs for one of its hooks.
+fn hook_command(hook_bin: &Path, agent: &str, event: &str) -> String {
+    hook_command_for(cfg!(windows), hook_bin, agent, event)
+}
+
+fn hook_command_for(windows: bool, hook_bin: &Path, agent: &str, event: &str) -> String {
+    if windows {
+        // Forward slashes work in Git Bash (Claude Code's hook shell), cmd and PowerShell; quotes only
+        // when needed, as PowerShell won't run a quoted path without `&`.
+        let exe = hook_bin.display().to_string().replace('\\', "/");
+        let exe = if exe.contains(' ') { format!("\"{exe}\"") } else { exe };
+        format!("{exe} hook {agent} {event}")
+    } else {
+        format!("'{}' {} {}", hook_bin.display(), agent, event)
+    }
 }
 
 /// Returns `settings` with Quazar's hook entries (re)added for `events`: each of the agent's
@@ -37,7 +59,7 @@ pub fn merge_hooks(mut settings: Value, hook_bin: &Path, agent: &str, events: &[
         }
         let groups = groups.as_array_mut().unwrap();
         groups.retain(|g| !is_ours(g));
-        let command = format!("'{}' {} {}", hook_bin.display(), agent, quazar_event);
+        let command = hook_command(hook_bin, agent, quazar_event);
         let mut group = Map::new();
         if *event == "PreToolUse" {
             group.insert("matcher".into(), json!("*"));
@@ -120,7 +142,7 @@ mod tests {
         let stop = twice["hooks"]["Stop"].as_array().unwrap();
         assert_eq!(stop.len(), 2);
         assert_eq!(stop[0]["hooks"][0]["command"], "say done");
-        assert_eq!(stop[1]["hooks"][0]["command"], "'/data/bin/quazar-hook' claude Stop");
+        assert_eq!(stop[1]["hooks"][0]["command"], hook_command(bin, "claude", "Stop"));
         assert_eq!(twice["hooks"]["PreToolUse"][0]["matcher"], "*");
         assert!(installed_in(&twice, events));
     }
@@ -128,14 +150,37 @@ mod tests {
     #[test]
     fn merge_into_empty_codex_file() {
         let merged = merge_hooks(Value::Null, Path::new("/h"), "codex", by_name("codex").unwrap().hooks.events);
-        assert_eq!(merged["hooks"]["PermissionRequest"][0]["hooks"][0]["command"], "'/h' codex PermissionRequest");
+        let command = hook_command(Path::new("/h"), "codex", "PermissionRequest");
+        assert_eq!(merged["hooks"]["PermissionRequest"][0]["hooks"][0]["command"], command);
+    }
+
+    #[test]
+    fn quotes_hook_commands_per_platform() {
+        let exe = Path::new(r"C:\Program Files\Quazar\quazar.exe");
+        assert_eq!(
+            hook_command_for(true, exe, "claude", "Stop"),
+            r#""C:/Program Files/Quazar/quazar.exe" hook claude Stop"#
+        );
+        let exe = Path::new(r"C:\Users\me\AppData\Local\Quazar\quazar.exe");
+        let command = hook_command_for(true, exe, "claude", "Stop");
+        assert_eq!(command, "C:/Users/me/AppData/Local/Quazar/quazar.exe hook claude Stop");
+        assert_eq!(hook_command_for(false, Path::new("/h"), "codex", "Stop"), "'/h' codex Stop");
+    }
+
+    #[test]
+    fn recognises_windows_hook_mode_commands() {
+        assert!(is_our_command("C:/Users/me/AppData/Local/Quazar/quazar.exe hook claude Stop"));
+        assert!(is_our_command("'/data/bin/quazar-hook' claude Stop"));
+        assert!(!is_our_command("say done"));
     }
 
     #[test]
     fn gemini_events_forward_under_quazar_names() {
         let merged = merge_hooks(Value::Null, Path::new("/h"), "gemini", by_name("gemini").unwrap().hooks.events);
-        assert_eq!(merged["hooks"]["AfterAgent"][0]["hooks"][0]["command"], "'/h' gemini Stop");
-        assert_eq!(merged["hooks"]["BeforeAgent"][0]["hooks"][0]["command"], "'/h' gemini UserPromptSubmit");
+        let h = Path::new("/h");
+        assert_eq!(merged["hooks"]["AfterAgent"][0]["hooks"][0]["command"], hook_command(h, "gemini", "Stop"));
+        let command = hook_command(h, "gemini", "UserPromptSubmit");
+        assert_eq!(merged["hooks"]["BeforeAgent"][0]["hooks"][0]["command"], command);
         // Gemini matchers are regexes; no matcher means every tool.
         assert!(merged["hooks"]["BeforeTool"][0].get("matcher").is_none());
     }

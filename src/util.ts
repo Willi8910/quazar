@@ -1,3 +1,5 @@
+import { isWindows } from "./platform";
+
 let home = "";
 export function setHome(dir: string) {
   home = dir.replace(/\/$/, "");
@@ -18,8 +20,10 @@ export function basename(path: string): string {
   return trimmed.slice(trimmed.lastIndexOf("/") + 1) || trimmed || "/";
 }
 
-export function shellQuote(word: string): string {
-  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`;
+export function shellQuote(word: string, windows = isWindows): string {
+  if (/^[\w@%+=:,./-]+$/.test(word)) return word;
+  // PowerShell escapes a quote inside single quotes by doubling it.
+  return windows ? `'${word.replace(/'/g, "''")}'` : `'${word.replace(/'/g, `'\\''`)}'`;
 }
 
 export function newId(prefix: string): string {

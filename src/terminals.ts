@@ -10,6 +10,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { IBufferCell, IMarker, Terminal } from "@xterm/xterm";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { api } from "./api";
+import { isWindows, joinCommands } from "./platform";
 import { useApp } from "./store";
 import type { Tab } from "./types";
 
@@ -118,6 +119,16 @@ function create(tabId: string, container: HTMLElement): Entry {
         send(tabId, keys[e.key]);
         return false;
       }
+    }
+    // Windows, as in Windows Terminal: Ctrl+C copies when text is selected, Ctrl+V pastes (the browser's
+    // paste, so an image still reaches the agent below).
+    if (isWindows && e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
+      if (e.code === "KeyC" && term.hasSelection()) {
+        void navigator.clipboard.writeText(term.getSelection());
+        term.clearSelection();
+        return false;
+      }
+      if (e.code === "KeyV") return false;
     }
     if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
       send(tabId, e.key === "ArrowLeft" ? "\x1bb" : "\x1bf");
@@ -340,7 +351,7 @@ export async function resumeCommand(tab: Tab): Promise<string | null> {
 /** Prefixes an agent command with the configured pre-launch commands, run one by one. */
 export function withPreLaunch(command: string): string {
   const pre = (useApp.getState().config?.preLaunch ?? []).map((c) => c.trim()).filter(Boolean);
-  return [...pre, command].join(" && ");
+  return joinCommands([...pre, command]);
 }
 
 /** Queues a command to run in a new tab as soon as its shell is ready. */

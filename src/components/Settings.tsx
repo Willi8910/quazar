@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import * as actions from "../actions";
 import { api } from "../api";
 import { LAUNCH_OPTIONS, profileAgent } from "../launch";
+import { key } from "../platform";
 import { useApp } from "../store";
 import * as terms from "../terminals";
 import type { Config, LaunchOption, Profile } from "../types";
@@ -276,7 +277,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </Field>
               <Field
                 label="Profiles"
-                hint="Shown in the New agent launcher (⌘N). Each agent's checkbox flags default to the agent's own (greyed); type a flag to override, e.g. for an agent Quazar doesn't know."
+                hint={`Shown in the New agent launcher (${key("new-agent")}). Each agent's checkbox flags default to the agent's own (greyed); type a flag to override, e.g. for an agent Quazar doesn't know.`}
               >
                 <Profiles profiles={config.profiles} />
               </Field>
