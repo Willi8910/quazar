@@ -70,9 +70,11 @@ function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }
 
 const newTab = () => useApp.getState().openModal({ kind: "launcher", mode: "tab" });
 
-/** "New": a click opens a new tab; hovering shows a menu to make a tab or a group. */
+/** "New": a click opens a shell beside the current tab; hovering shows a menu for a tab, an agent or a group. */
 function NewButton() {
   const [open, setOpen] = useState(false);
+  // Agents that can skip their permission prompts (the quick entries start them that way).
+  const agents = useApp((s) => s.agents).filter((a) => a.options.bypass);
   const timer = useRef<number | undefined>(undefined);
   const hover = (next: boolean) => {
     window.clearTimeout(timer.current);
@@ -86,14 +88,32 @@ function NewButton() {
   };
   return (
     <div className="new-wrap" onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}>
-      <button className="icon-btn new-btn" onClick={() => pick(newTab)} aria-haspopup="menu" aria-expanded={open}>
+      <button
+        className="icon-btn new-btn"
+        onClick={() => pick(actions.newShellHere)}
+        title="New shell beside this tab (same group and folder)"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
         New <span className="new-caret">▾</span>
       </button>
       {open && (
         <div className="ctx new-menu" role="menu">
           <div className="ctx-item" role="menuitem" onClick={() => pick(newTab)}>
-            Tab
+            Tab in folder…
           </div>
+          {agents.map((a) => (
+            <div
+              key={a.name}
+              className="ctx-item new-agent"
+              role="menuitem"
+              title={`New ${a.label} tab beside this one (same folder and group), permissions bypassed`}
+              onClick={() => pick(() => actions.newAgentHere(a.name))}
+            >
+              <AgentIcon agent={a.name} color={a.color} />
+              {a.label}
+            </div>
+          ))}
           <div className="ctx-item" role="menuitem" onClick={() => pick(() => actions.newGroup())}>
             Group
           </div>

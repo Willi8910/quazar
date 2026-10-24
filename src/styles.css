@@ -2688,3 +2688,17 @@ body.tear-out .tab.dragging::after {
 .tip-palette .picker-item {
   margin: 0 6px;
 }
+/* "New" → an agent beside the current tab, nested under "Tab". */
+.new-menu {
+  min-width: 170px;
+}
+.ctx-item.new-agent {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 20px;
+  color: var(--muted);
+}
+.ctx-item.new-agent:hover {
+  color: var(--text);
+}

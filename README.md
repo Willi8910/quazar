@@ -73,7 +73,9 @@ plain Ctrl+C / Ctrl+V / Ctrl+W still reach the shell; Ctrl+C copies when text is
 2. **Install the agent hooks** when asked (or later: ⌘K → *Install agent hooks*). They let Quazar see what each
    agent is doing; without them, status, notifications and the "needs you" queue stay idle. They only act inside
    Quazar, and your existing hooks are kept.
-3. **⌘N** to start an agent in a project, **⌘T** for a plain terminal.
+3. **⌘N** to start an agent in a project, **⌘T** for a plain terminal. The sidebar's **New** button opens a shell beside the
+   current tab (same group, the group's folder); hover it to start Claude Code, Codex or Gemini there in one
+   click, with permissions bypassed.
 
 ## Keyboard shortcuts
 

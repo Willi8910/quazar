@@ -23,9 +23,9 @@ import {
 } from "./store";
 import { skillInvoked, usageKey } from "./skills";
 import { listenHere, requestSnapshot, startSync } from "./sync";
-import { flatten, isCollapsed, pathTo, subtreeTabs, visibleTabs } from "./tree";
+import { flatten, isCollapsed, pathTo, pathToTab, subtreeTabs, visibleTabs } from "./tree";
 import * as terms from "./terminals";
-import type { AgentEvent, Group, Profile, ShellEvent, Tab } from "./types";
+import type { AgentEvent, AgentName, Group, LaunchOption, Profile, ShellEvent, Tab } from "./types";
 import { basename, describeTool, digest, newId, setHome, shellQuote, tildify, untildify } from "./util";
 
 const get = () => useApp.getState();
@@ -34,9 +34,15 @@ const tabById = (id: string) => get().tabs.find((t) => t.id === id);
 // ---------- tabs ----------
 
 /** Opens a tab in `cwd`, starting `profile` with the launcher's checked options. */
-export function newTab(cwd: string, profile?: Profile, groupId: string | null = null): Tab {
+/** Opens a tab in `cwd`, starting `profile` there with `options` (default: the launcher's checkboxes). */
+export function newTab(
+  cwd: string,
+  profile?: Profile,
+  groupId: string | null = null,
+  options: Record<LaunchOption, boolean> = get().config!.launchOptions,
+): Tab {
   // Two agents in one checkout edit the same files; point to the Worktree option.
-  const busy = profile?.command && !get().config!.launchOptions.worktree && busyIn(get().tabs, cwd, get().agents);
+  const busy = profile?.command && !options.worktree && busyIn(get().tabs, cwd, get().agents);
   if (busy) get().showToast(`“${busy.title}” is already working in this repo — consider Worktree`);
   const tab = get().addTab(cwd, groupId);
   // Opening a tab in a hidden or collapsed group shows the group again (its other hidden tabs stay hidden).
@@ -47,9 +53,51 @@ export function newTab(cwd: string, profile?: Profile, groupId: string | null = 
   void saveConfig();
   void api.gitRoot(cwd).then((repoRoot) => get().updateTab(tab.id, { repoRoot }));
   // The terminal view starts the shell when it shows the (now active) tab.
-  const command = profile ? launchCommand(profile, get().config!.launchOptions) : "";
+  const command = profile ? launchCommand(profile, options) : "";
   if (command) terms.queueRun(tab.id, terms.withPreLaunch(command));
   return tab;
+}
+
+/**
+ * Where a tab opened "beside" the current one goes: the current tab's group, in the folder of the node it's
+ * shown under — its repo/folder group, or the custom group's assigned folder (the one holding the tab, else
+ * the first). Null without a current tab, or from a quick terminal.
+ */
+function besideActive(): { cwd: string; groupId: string | null } | null {
+  const here = tabById(get().activeId ?? "");
+  if (!here || here.loose) return null;
+  const path = pathToTab(sidebarTree(true), here.id) ?? [];
+  const inside = (folder: string) => here.cwd === folder || here.cwd.startsWith(folder.replace(/\/$/, "") + "/");
+  let cwd: string | undefined;
+  for (const node of [...path].reverse()) {
+    cwd = node.folder ?? node.group?.folders.find(inside) ?? node.group?.folders[0];
+    if (cwd) break;
+  }
+  return { cwd: cwd ?? here.repoRoot ?? here.cwd, groupId: here.groupId };
+}
+
+/** The "New" button: a shell beside the current tab (its group and folder), or the launcher without one. */
+export function newShellHere() {
+  const at = besideActive();
+  if (!at) return get().openModal({ kind: "launcher", mode: "tab" });
+  newTab(at.cwd, undefined, at.groupId);
+}
+
+/**
+ * Starts `agent` with permissions bypassed in a new tab beside the current one (see {@link besideActive}).
+ * Uses the user's profile for that agent when there is one (keeping its own flags), else the agent's program.
+ */
+export function newAgentHere(agent: AgentName) {
+  const { agents, config } = get();
+  const info = agents.find((a) => a.name === agent);
+  if (!info) return;
+  const profile = config!.profiles.find((p) => p.command.trim() && profileAgent(p)?.name === agent) ?? {
+    id: `agent-${agent}`,
+    name: info.label,
+    command: info.programs[0],
+  };
+  const at = besideActive() ?? { cwd: untildify("~"), groupId: null };
+  newTab(at.cwd, profile, at.groupId, { bypass: true, plan: false, worktree: false });
 }
 
 /** A plain shell in the home folder for odd jobs (k9s, aws …), kept out of the folder groups. */
