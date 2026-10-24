@@ -22,7 +22,10 @@ export function windowRect(el: HTMLElement): { left: number; top: number; right:
  * when it opens. Follows the pointer itself rather than enter/leave events, which misfire across the
  * portal and the zoomed sidebar.
  */
-export function useHoverPopover<A, T extends HTMLElement = HTMLElement>(place: (trigger: T) => A | null) {
+export function useHoverPopover<A, T extends HTMLElement = HTMLElement>(
+  place: (trigger: T) => A | null,
+  { closeDelay = 300 }: { closeDelay?: number } = {},
+) {
   const [anchor, setAnchor] = useState<A | null>(null);
   const trigger = useRef<T>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -33,19 +36,23 @@ export function useHoverPopover<A, T extends HTMLElement = HTMLElement>(place: (
     const onMove = (e: PointerEvent) => {
       const over = [trigger.current, panel.current].some((el) => el?.contains(e.target as Node));
       window.clearTimeout(timer.current);
-      if (!over) timer.current = window.setTimeout(() => setAnchor(null), 300);
+      if (!over) timer.current = window.setTimeout(() => setAnchor(null), closeDelay);
     };
     window.addEventListener("pointermove", onMove);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.clearTimeout(timer.current);
     };
-  }, [anchor]);
+  }, [anchor, closeDelay]);
 
   const onMouseEnter = () => {
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => trigger.current && setAnchor(place(trigger.current)), 250);
   };
   const onMouseLeave = () => anchor === null && window.clearTimeout(timer.current);
-  return { anchor, trigger, panel, onMouseEnter, onMouseLeave, close: () => setAnchor(null) };
+  const close = () => {
+    window.clearTimeout(timer.current);
+    setAnchor(null);
+  };
+  return { anchor, trigger, panel, onMouseEnter, onMouseLeave, close };
 }

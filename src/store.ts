@@ -59,6 +59,8 @@ interface AppState {
   groups: Group[];
   activeId: string | null;
   usage: Record<string, Usage>;
+  /** See `PersistedState.skillUsage`. */
+  skillUsage: Record<string, Usage>;
   collapsedAuto: string[];
   /** Sections hidden as a whole (see `PersistedState`). */
   hiddenSections: string[];
@@ -129,6 +131,7 @@ export const useApp = create<AppState>((set, get) => ({
   groups: [],
   activeId: null,
   usage: {},
+  skillUsage: {},
   collapsedAuto: [],
   hiddenSections: [],
   sectionOrder: [],
@@ -173,6 +176,7 @@ export const useApp = create<AppState>((set, get) => ({
       groups: state?.groups ?? [],
       activeId: activeId ?? null,
       usage: state?.usage ?? {},
+      skillUsage: state?.skillUsage ?? {},
       collapsedAuto: state?.collapsedAuto ?? [],
       hiddenSections: state?.hiddenSections ?? [],
       sectionOrder: state?.sectionOrder ?? [],
@@ -340,14 +344,25 @@ export const useApp = create<AppState>((set, get) => ({
 }));
 
 export function persisted(): PersistedState {
-  const { tabs, groups, activeId, usage, collapsedAuto, hiddenSections, sectionOrder, sessionLog, windows } =
-    useApp.getState();
+  const {
+    tabs,
+    groups,
+    activeId,
+    usage,
+    skillUsage,
+    collapsedAuto,
+    hiddenSections,
+    sectionOrder,
+    sessionLog,
+    windows,
+  } = useApp.getState();
   return {
     version: 1,
     tabs,
     groups,
     activeId,
     usage,
+    skillUsage,
     collapsedAuto,
     hiddenSections,
     sectionOrder,

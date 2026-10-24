@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use super::{clip, read_head, read_tail, within, AgentDef, Flags, Hooks, LaunchOptions, PastSession, SessionArgs};
+use super::{
+    clip, read_head, read_tail, skills, within, AgentDef, Flags, Hooks, LaunchOptions, PastSession, SessionArgs, Skill,
+};
 use crate::paths::home_dir;
 
 pub static CODEX: AgentDef = AgentDef {
@@ -53,6 +55,7 @@ pub static CODEX: AgentDef = AgentDef {
     child_env: &["CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED"],
     transcript_summary: None,
     sessions,
+    skills,
 };
 
 /// Rollouts live in `sessions/YYYY/MM/DD/rollout-<time>-<id>.jsonl`; the first line holds the cwd.
@@ -113,6 +116,11 @@ fn read_session(path: &Path, folder: &Path) -> Option<PastSession> {
 fn event_text(entry: &Value, kind: &str) -> Option<String> {
     let p = &entry["payload"];
     (entry["type"] == "event_msg" && p["type"] == kind).then(|| clip(p["message"].as_str()?, 300)).flatten()
+}
+
+/// Custom prompts (`prompts/*.md`), run as `/prompts:<name>`.
+fn skills(_cwd: &Path) -> Vec<Skill> {
+    skills::command_files(&codex_home().join("prompts"), "md", "prompts:", "user")
 }
 
 fn codex_home() -> PathBuf {

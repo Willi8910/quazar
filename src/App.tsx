@@ -17,6 +17,7 @@ import {
 } from "./actions";
 import { api } from "./api";
 import { CodeIcon, DiffIcon, FolderIcon, ForkIcon, PanelIcon, TrashIcon, WindowIcon } from "./components/icons";
+import { ConsoleDock } from "./components/ConsoleDock";
 import { LaunchOptions } from "./components/LaunchOptions";
 import { Modals } from "./components/Modals";
 import { Onboarding } from "./components/Onboarding";
@@ -89,6 +90,7 @@ function TerminalArea() {
     <div className="terminal-area">
       <div className="terminals" ref={ref} />
       <QuickLaunch />
+      <ConsoleDock />
       {!hasTabs && (
         <div className="empty">
           <div className="empty-title">Quazar</div>

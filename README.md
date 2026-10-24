@@ -22,7 +22,13 @@ Built with [Tauri 2](https://tauri.app), React and xterm.js: a ~5 MB app with a 
   servers with their ports included) and stop the one that's running away.
 - **Multiple windows.** Move a tab to its own window (one console per monitor); all windows share the same,
   synced sidebar.
+- **Quick skills.** A floating button in the console: hover it for the skills you ran most recently (topped up
+  with the ones you made yourself, in the project or your own folder) and click one to run it in that tab's
+  agent; Shift-click types it so you can add details. Drag the button anywhere, double-click to put it back;
+  turn it off or change how many skills it shows in **Settings → Agents**. Skills are read only when the menu
+  opens.
 - **Keyboard first.** Everything is in the command palette (**⌘K**).
+- **macOS and Windows.** Native zsh integration on macOS; PowerShell on Windows (preview).
 
 ## Install
 
@@ -44,9 +50,15 @@ kept (they live in `~/Library/Application Support/com.williamlie.quazar`).
 
 ### Windows
 
-Not available yet. Quazar's shell integration and process tools are macOS/Unix-specific today; a Windows
-version (PowerShell integration, Windows installer) is planned. Follow the
-[releases](https://github.com/Willi8910/quazar/releases) for it.
+A **preview** is available as a pre-release; it's still being tested, so expect rough edges.
+
+1. Download **`Quazar_<version>_x64-setup.exe`** from the newest `v…-windows.N` pre-release on the
+   [releases page](https://github.com/Willi8910/quazar/releases).
+2. Run it. The installer isn't signed yet, so SmartScreen warns once: **More info → Run anyway**.
+
+Tabs open PowerShell 7 (`pwsh`) if it's installed, otherwise Windows PowerShell. Claude Code on Windows needs
+[Git for Windows](https://git-scm.com/download/win). Shortcuts use **Ctrl+Shift** instead of ⌘ (see below), so
+plain Ctrl+C / Ctrl+V / Ctrl+W still reach the shell; Ctrl+C copies when text is selected.
 
 ## First steps
 
@@ -72,6 +84,10 @@ version (PowerShell integration, Windows installer) is planned. Follow the
 | ⌘B / ⇧⌘B | Show or hide the sidebar / move it left or right |
 | ⌘= / ⌘- / ⌘0 | Bigger / smaller / actual size (sidebar or terminal, whichever you used last) |
 | ⌘, | Settings |
+
+On Windows: Ctrl+Shift+N / T / K / J / W / R / B for the ⌘ shortcuts above, Ctrl+Alt+B to move the sidebar,
+Ctrl+Alt+1 … 9 for tabs, Ctrl+Tab / Ctrl+Shift+Tab for next / previous tab, and Ctrl+, Ctrl+= Ctrl+- Ctrl+0 as on
+macOS.
 
 ## Build from source
 

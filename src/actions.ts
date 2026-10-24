@@ -21,6 +21,7 @@ import {
   tabPath,
   useApp,
 } from "./store";
+import { skillInvoked, usageKey } from "./skills";
 import { listenHere, requestSnapshot, startSync } from "./sync";
 import { flatten, isCollapsed, pathTo, subtreeTabs, visibleTabs } from "./tree";
 import * as terms from "./terminals";
@@ -730,6 +731,26 @@ async function trackWorktree(tabId: string, paths: Iterable<string>) {
   }
 }
 
+/** Remembers a skill the user ran by typing `/name`, for the console's skills menu. */
+async function recordSkillUse(agent: string, prompt: string, cwd: string) {
+  // The skill folders are read only for prompts that start with a slash.
+  const names = new Set((await api.listSkills(agent, cwd).catch(() => [])).map((s) => s.name));
+  const name = skillInvoked(prompt, (n) => names.has(n));
+  if (!name) return;
+  const key = usageKey(agent, name);
+  const prev = get().skillUsage[key];
+  useApp.setState({ skillUsage: { ...get().skillUsage, [key]: { count: (prev?.count ?? 0) + 1, last: Date.now() } } });
+}
+
+/** Runs a skill in the tab's agent, as if typed: `/name` and Enter (or only typed, to add details first). */
+export function runSkill(tabId: string, name: string, submit: boolean) {
+  terms.writeInput(tabId, `/${name}`);
+  // A moment for the agent's command menu to catch up, so Enter runs the command rather than only completing it.
+  if (submit) window.setTimeout(() => terms.writeInput(tabId, "\r"), 150);
+  else terms.writeInput(tabId, " ");
+  terms.focus(tabId);
+}
+
 function onAgentEvent(ev: AgentEvent) {
   const tab = tabById(ev.tab);
   if (!tab || !isMine(tab)) return;
@@ -772,6 +793,7 @@ function onAgentEvent(ev: AgentEvent) {
           titleSource: "prompt",
         });
       update(patch);
+      if (prompt.trimStart().startsWith("/")) void recordSkillUse(ev.agent, prompt, agentCwd ?? tab.cwd);
       break;
     }
     case "PreToolUse":
@@ -1114,6 +1136,7 @@ async function initMain() {
       "groups",
       "activeId",
       "usage",
+      "skillUsage",
       "collapsedAuto",
       "hiddenSections",
       "sectionOrder",

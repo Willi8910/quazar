@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-use super::{clip, within, AgentDef, Flags, Hooks, LaunchOptions, PastSession, SessionArgs};
+use super::{clip, skills, within, AgentDef, Flags, Hooks, LaunchOptions, PastSession, SessionArgs, Skill};
 use crate::paths::home_dir;
 
 pub static GEMINI: AgentDef = AgentDef {
@@ -54,7 +54,18 @@ pub static GEMINI: AgentDef = AgentDef {
     child_env: &["GEMINI_CLI"],
     transcript_summary: None,
     sessions,
+    skills,
 };
+
+/// Custom commands (`commands/**/*.toml`), the project's and the user's.
+fn skills(cwd: &Path) -> Vec<Skill> {
+    let mut out = Vec::new();
+    for dir in skills::project_dirs(cwd) {
+        out.extend(skills::command_files(&dir.join(".gemini").join("commands"), "toml", "", "project"));
+    }
+    out.extend(skills::command_files(&home_dir().join(".gemini").join("commands"), "toml", "", "user"));
+    skills::dedupe(out)
+}
 
 /// Chats live in `tmp/<project>/chats/session-*.json`, where `<project>` is the SHA-256 of the
 /// project folder or (newer versions) a short name registered in `projects.json` and noted in

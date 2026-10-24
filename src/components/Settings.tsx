@@ -4,6 +4,7 @@ import * as actions from "../actions";
 import { api } from "../api";
 import { LAUNCH_OPTIONS, profileAgent } from "../launch";
 import { key } from "../platform";
+import { DEFAULT_RECENT_SKILLS } from "../skills";
 import { useApp } from "../store";
 import * as terms from "../terminals";
 import type { Config, LaunchOption, Profile } from "../types";
@@ -281,6 +282,32 @@ export function Settings({ onClose }: { onClose: () => void }) {
               >
                 <Profiles profiles={config.profiles} />
               </Field>
+              <button
+                className="switch-row"
+                onClick={() => set({ consoleButton: config.consoleButton === false })}
+                title="A small button at the console's bottom right: hover it for your recent skills"
+              >
+                <span>Quick-actions button in the console</span>
+                <span className={"switch" + (config.consoleButton !== false ? " on" : "")} />
+              </button>
+              {config.consoleButton !== false && (
+                <Field
+                  label="Skills in its menu"
+                  hint="The ones you ran last (typed as /name), then your own skills, newest first."
+                >
+                  <input
+                    className="input depth"
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={config.recentSkills ?? DEFAULT_RECENT_SKILLS}
+                    onChange={(e) => {
+                      const recentSkills = Number(e.target.value);
+                      if (recentSkills >= 1 && recentSkills <= 20) set({ recentSkills });
+                    }}
+                  />
+                </Field>
+              )}
               <button className="btn small" onClick={() => useApp.getState().openModal({ kind: "hooks" })}>
                 Agent hooks…
               </button>

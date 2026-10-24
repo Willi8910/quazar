@@ -188,6 +188,7 @@ pub fn run() {
             quit_app,
             agents::agent_list,
             agents::list_sessions,
+            agents::list_skills,
             js_log,
             build_resume_command,
             build_fork_command,

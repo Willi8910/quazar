@@ -206,3 +206,12 @@ export function StopIcon({ size = 12 }: { size?: number }) {
     </svg>
   );
 }
+
+/** A lightning bolt, for the console's quick actions. */
+export function BoltIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...lucide} width={size} height={size}>
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" />
+    </svg>
+  );
+}

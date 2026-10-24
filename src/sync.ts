@@ -19,7 +19,7 @@ const VALUES = [
   "metrics",
 ] as const;
 /** Shared entry by entry. */
-const RECORDS = ["live", "usage", "showing"] as const;
+const RECORDS = ["live", "usage", "skillUsage", "showing"] as const;
 
 export interface TabsDelta {
   upsert: Tab[];

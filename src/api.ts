@@ -9,6 +9,7 @@ import type {
   Metrics,
   NotifyPermission,
   PastSession,
+  Skill,
   PersistedState,
   ProcessInfo,
   UpdateStatus,
@@ -61,6 +62,7 @@ export const api = {
 
   detectLaunch: (cmdline: string) => invoke<Launch | null>("detect_launch", { cmdline }),
   listSessions: (folder: string) => invoke<PastSession[]>("list_sessions", { folder }),
+  listSkills: (agent: string, cwd: string) => invoke<Skill[]>("list_skills", { agent, cwd }),
 
   forkCommand: (agent: string, argv: string[], sessionId: string) =>
     invoke<string | null>("build_fork_command", { agent, argv, sessionId }),

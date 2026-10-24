@@ -9,12 +9,15 @@
 mod claude;
 mod codex;
 mod gemini;
+mod skills;
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+
+pub use skills::Skill;
 
 /// Every supported agent.
 pub static AGENTS: &[&AgentDef] = &[&claude::CLAUDE, &codex::CODEX, &gemini::GEMINI];
@@ -44,6 +47,8 @@ pub struct AgentDef {
     pub transcript_summary: Option<fn(&Path) -> Option<String>>,
     /// Lists the agent's own saved sessions whose working directory is in a folder.
     pub sessions: fn(&Path) -> Vec<PastSession>,
+    /// Lists the skills and custom slash commands the agent offers in a folder (user and project ones).
+    pub skills: fn(&Path) -> Vec<Skill>,
 }
 
 /// A session found in an agent's own history, for the resume list.
@@ -107,6 +112,13 @@ pub async fn list_sessions(folder: String) -> Vec<PastSession> {
     let mut all: Vec<PastSession> = AGENTS.iter().flat_map(|a| (a.sessions)(&folder)).collect();
     all.sort_by(|a, b| b.updated.cmp(&a.updated));
     all
+}
+
+/// The skills and custom slash commands `agent` offers in `cwd`; the project's first.
+#[tauri::command]
+pub async fn list_skills(agent: String, cwd: String) -> Vec<Skill> {
+    let cwd = PathBuf::from(crate::paths::expand_home(&cwd));
+    by_name(&agent).map(|a| (a.skills)(&cwd)).unwrap_or_default()
 }
 
 pub struct Flags {

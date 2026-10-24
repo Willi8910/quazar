@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use super::{clip, read_head, read_tail, within, AgentDef, Flags, Hooks, LaunchOptions, PastSession, SessionArgs};
+use super::{
+    clip, read_head, read_tail, skills, within, AgentDef, Flags, Hooks, LaunchOptions, PastSession, SessionArgs, Skill,
+};
 use crate::paths::home_dir;
 
 pub static CLAUDE: AgentDef = AgentDef {
@@ -70,7 +72,20 @@ pub static CLAUDE: AgentDef = AgentDef {
     ],
     transcript_summary: Some(last_assistant_text),
     sessions,
+    skills,
 };
+
+/// Skills (`skills/<name>/SKILL.md`) and commands (`commands/**/*.md`), the project's and the user's.
+fn skills(cwd: &Path) -> Vec<Skill> {
+    let mut out = Vec::new();
+    for dir in skills::project_dirs(cwd) {
+        out.extend(skills::skill_folders(&dir.join(".claude").join("skills"), "project"));
+        out.extend(skills::command_files(&dir.join(".claude").join("commands"), "md", "", "project"));
+    }
+    out.extend(skills::skill_folders(&config_dir().join("skills"), "user"));
+    out.extend(skills::command_files(&config_dir().join("commands"), "md", "", "user"));
+    skills::dedupe(out)
+}
 
 fn config_dir() -> PathBuf {
     std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from).unwrap_or_else(|| home_dir().join(".claude"))

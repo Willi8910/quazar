@@ -129,6 +129,12 @@ export interface Config {
   headerLabels?: boolean;
   /** How the Changes dialog shows a diff. */
   diffView?: "unified" | "split";
+  /** The console's floating button (recent skills, …) (unset = on). */
+  consoleButton?: boolean;
+  /** Where the user dragged it: its centre as a fraction of the console's width and height (unset = bottom right). */
+  consoleButtonAt?: { x: number; y: number };
+  /** How many skills its menu lists (unset = 6). */
+  recentSkills?: number;
   /** Launcher checkboxes, remembered between launches. */
   launchOptions: Record<LaunchOption, boolean>;
 }
@@ -153,6 +159,8 @@ export interface PersistedState {
   sessionLog?: SessionRecord[];
   /** Windows besides the main one; `activeId` above is the main window's. */
   windows?: WindowRecord[];
+  /** Skills the user ran by typing `/name` in an agent, by `<agent>:<name>`. */
+  skillUsage?: Record<string, Usage>;
 }
 
 /** A window besides the main one, and the tab it shows. */
@@ -224,6 +232,16 @@ export interface HookStatus {
   agent: AgentName;
   path: string;
   installed: boolean;
+}
+
+/** A skill or custom slash command an agent offers (see `list_skills`). */
+export interface Skill {
+  /** What follows the slash, e.g. "create-jira-ticket". */
+  name: string;
+  description: string;
+  scope: "project" | "user";
+  /** Last change, ms since the epoch. */
+  modified: number;
 }
 
 /** CPU (percent of one core) and resident memory (bytes). */
