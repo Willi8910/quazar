@@ -6,7 +6,11 @@ repositories at once, and keeping track of all of them.
 Built with [Tauri 2](https://tauri.app), React and xterm.js: a ~5 MB app with a native terminal per tab.
 
 Short Demo
-https://github.com/user-attachments/assets/9d54e032-7958-4fe8-a381-ee6a193e090e
+
+
+https://github.com/user-attachments/assets/12107de2-7775-4857-82d1-da5facec5df0
+
+
 
 ## Features
 
