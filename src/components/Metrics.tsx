@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import * as actions from "../actions";
 import { api } from "../api";
-import { bytes, cpuShare, load, memoryShare, percent, TAB_SCALE, total } from "../metrics";
+import { bytes, cpuShare, isIdle, load, memoryShare, percent, TAB_SCALE, total } from "../metrics";
 import { agentInfo, useApp } from "../store";
 import { useHoverPopover, windowRect } from "./hover";
 import { AgentIcon, StopIcon } from "./icons";
@@ -86,6 +86,13 @@ function MetricsPanel({
     .map((use) => ({ use, tab: tabs.find((t) => t.id === use.tabId) }))
     .filter((r) => r.tab)
     .sort((a, b) => rank(a.use.tabId) - rank(b.use.tabId));
+  // Idle shells are folded into one row so they don't crowd out the tabs actually using something.
+  const busy = rows.filter((r) => !isIdle(r.use, metrics));
+  const idle = rows.filter((r) => isIdle(r.use, metrics));
+  const idleUse = idle.reduce((sum, r) => ({ cpu: sum.cpu + r.use.cpu, memory: sum.memory + r.use.memory }), {
+    cpu: 0,
+    memory: 0,
+  });
   const left = Math.max(8, Math.min(anchor.left, window.innerWidth - WIDTH - 8));
   return (
     <div ref={ref} className="ctx metrics-panel" style={{ left, bottom: anchor.bottom, width: WIDTH }}>
@@ -96,7 +103,7 @@ function MetricsPanel({
         </span>
       </div>
       {rows.length === 0 && <div className="hm-empty">No shells running.</div>}
-      {rows.map(({ use, tab }) => (
+      {busy.map(({ use, tab }) => (
         <div key={use.tabId} className="hm-row clickable" onClick={() => actions.revealTab(tab!.id)}>
           <div className="hm-text">
             <div className="hm-title">
@@ -131,6 +138,18 @@ function MetricsPanel({
           </button>
         </div>
       ))}
+      {idle.length > 0 && (
+        <div className="hm-row" title={idle.map((r) => r.tab!.title).join("\n")}>
+          <div className="hm-text">
+            <div className="hm-title">
+              Idle · {idle.length} tab{idle.length === 1 ? "" : "s"}
+            </div>
+            <div className="hm-sub">{idle.map((r) => r.tab!.title).join(", ")}</div>
+          </div>
+          <UseCells use={idleUse} metrics={metrics} />
+          <span className="metrics-stop" />
+        </div>
+      )}
       <div className="hm-row">
         <div className="hm-text">
           <div className="hm-title">Quazar</div>
@@ -139,7 +158,7 @@ function MetricsPanel({
         <UseCells use={metrics.app} metrics={metrics} />
         <span className="metrics-stop" />
       </div>
-      <div className="hm-hint">CPU is a share of all cores. Stopped tabs keep their place; agents resume.</div>
+      <div className="hm-hint">CPU is a share of all cores. Stopped agents resume when reopened.</div>
     </div>
   );
 }

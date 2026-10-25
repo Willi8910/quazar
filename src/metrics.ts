@@ -29,6 +29,9 @@ export function load(use: ResourceUse, m: Metrics, scale = 1): Load {
 
 export const TAB_SCALE = 0.5;
 
+/** A tab this light (an idle shell, say) is folded into the resource panel's "Idle" row. */
+export const isIdle = (use: ResourceUse, m: Metrics) => use.memory < 5 * 1024 ** 2 && cpuShare(use, m) < 0.5;
+
 export function percent(value: number): string {
   return value < 10 ? `${value.toFixed(1)}%` : `${Math.round(value)}%`;
 }

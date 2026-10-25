@@ -399,13 +399,12 @@ export function onExit(tabId: string) {
   // Out of sight: nothing to show the message to, so free its screen now.
   if (useApp.getState().activeId !== tabId) return freeIdle();
   if (stopped) {
-    // A fresh console in place of the agent's screen, with its resume command typed in.
+    // Nothing runs until a key: then a fresh shell starts, with the resume command typed in.
     entry.term.reset();
     const resumable = tab.agent && tab.sessionId;
     entry.term.write(
-      `\x1b[2m[stopped to free resources${resumable ? " — press Enter to resume the session" : ""}]\x1b[0m\r\n`,
+      `\x1b[2m[stopped to free resources — press any key for a new shell${resumable ? " with the resume command ready" : ""}]\x1b[0m\r\n`,
     );
-    void start(tabId);
     return;
   }
   entry.term.write(RESET_MODES + "\r\n\x1b[2m[shell exited — press any key to start a new one]\x1b[0m\r\n");

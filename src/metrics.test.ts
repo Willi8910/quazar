@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bytes, cpuShare, load, percent, TAB_SCALE, total } from "./metrics";
+import { bytes, cpuShare, isIdle, load, percent, TAB_SCALE, total } from "./metrics";
 import type { Metrics } from "./types";
 
 const GB = 1024 ** 3;
@@ -25,6 +25,13 @@ describe("metrics", () => {
     expect(load({ cpu: 300, memory: GB }, m)).toBe("warn");
     expect(load({ cpu: 100, memory: 5 * GB }, m)).toBe("high");
     expect(load({ cpu: 300, memory: GB }, m, TAB_SCALE)).toBe("high");
+  });
+
+  it("counts a tab as idle only when it's small and quiet", () => {
+    const MB = 1024 ** 2;
+    expect(isIdle({ cpu: 0, memory: 2 * MB }, m)).toBe(true);
+    expect(isIdle({ cpu: 0, memory: 6 * MB }, m)).toBe(false);
+    expect(isIdle({ cpu: 20, memory: 2 * MB }, m)).toBe(false);
   });
 
   it("formats values", () => {
