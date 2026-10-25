@@ -5,6 +5,10 @@ repositories at once, and keeping track of all of them.
 
 Built with [Tauri 2](https://tauri.app), React and xterm.js: a ~5 MB app with a native terminal per tab.
 
+[![Quazar in 26 seconds: eight agents, the one that needs you, review, resume after a restart](docs/demo.jpg)](docs/demo.mp4)
+
+▶ **[Watch the 26-second demo](docs/demo.mp4)**
+
 ## Features
 
 - **Tabs grouped by repository.** Every tab is a real shell. Tabs group themselves by repo folder; make your
