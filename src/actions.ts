@@ -8,6 +8,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { api } from "./api";
 import { busyIn, nextAttention } from "./attention";
 import { launchCommand, profileAgent } from "./launch";
+import { emptyHistory, step, visit } from "./history";
 import { fileManager, isWindows, joinCommands, windowsShortcut } from "./platform";
 import type { SessionRow } from "./sessions";
 import {
@@ -221,6 +222,29 @@ export function cycleTab(delta: number) {
   if (!order.length) return;
   const at = order.findIndex((t) => t.id === get().activeId);
   get().activate(order[(at + delta + order.length) % order.length].id);
+}
+
+// Back/forward through the tabs opened in this window (⌃- / ⌃⇧-, the mouse's side buttons).
+let history = emptyHistory();
+let navigating = false;
+
+export function goBack() {
+  navigate("back");
+}
+
+export function goForward() {
+  navigate("forward");
+}
+
+function navigate(dir: "back" | "forward") {
+  const s = get();
+  const usable = (id: string) => s.tabs.some((t) => t.id === id && isMine(t) && !t.hidden);
+  const moved = step(history, s.activeId, dir, usable);
+  if (!moved) return;
+  history = moved.history;
+  navigating = true;
+  s.activate(moved.target);
+  navigating = false;
 }
 
 export function renameTab(id: string) {
@@ -1092,6 +1116,7 @@ export async function init() {
   }
   await startSync(onRemoteChange);
   useApp.subscribe((s, prev) => {
+    if (prev.activeId && s.activeId !== prev.activeId && !navigating) history = visit(history, prev.activeId);
     if (prev.activeId && !s.activeId) fillEmpty(prev.activeId);
     if (s.activeId && s.activeId !== prev.activeId) void refreshChanges(s.activeId);
     if (s.activeId !== prev.activeId) terms.freeIdle();
@@ -1131,6 +1156,12 @@ export async function init() {
       },
       true,
     );
+  // The mouse's back and forward side buttons.
+  window.addEventListener("mouseup", (e) => {
+    if (e.button !== 3 && e.button !== 4) return;
+    e.preventDefault();
+    navigate(e.button === 3 ? "back" : "forward");
+  });
   await listen<ShellEvent>("shell-event", (e) => onShellEvent(e.payload));
   await listen<AgentEvent>("agent-event", (e) => onAgentEvent(e.payload));
   await listen<string>("notification-clicked", (e) => void onNotificationClicked(e.payload));
@@ -1234,6 +1265,10 @@ export function onMenu(id: string) {
       return active && renameTab(active);
     case "next-attention":
       return nextNeedingYou();
+    case "go-back":
+      return goBack();
+    case "go-forward":
+      return goForward();
     case "next-tab":
       return cycleTab(1);
     case "prev-tab":

@@ -93,6 +93,7 @@ plain Ctrl+C / Ctrl+V / Ctrl+W still reach the shell; Ctrl+C copies when text is
 | ⌘J | Next agent needing you |
 | ⌘1 … ⌘9 | Go to tab 1–9 |
 | ⇧⌘] / ⇧⌘[ | Next / previous tab |
+| ⌃- / ⌃⇧- | Back / forward through the tabs you opened (also the mouse's side buttons) |
 | ⌘W | Close tab |
 | ⇧⌘R | Rename tab |
 | ⌘B / ⇧⌘B | Show or hide the sidebar / move it left or right |
@@ -100,7 +101,7 @@ plain Ctrl+C / Ctrl+V / Ctrl+W still reach the shell; Ctrl+C copies when text is
 | ⌘, | Settings |
 
 On Windows: Ctrl+Shift+N / T / K / J / W / R / B for the ⌘ shortcuts above, Ctrl+Alt+B to move the sidebar,
-Ctrl+Alt+1 … 9 for tabs, Ctrl+Tab / Ctrl+Shift+Tab for next / previous tab, and Ctrl+, Ctrl+= Ctrl+- Ctrl+0 as on
+Ctrl+Alt+1 … 9 for tabs, Ctrl+Tab / Ctrl+Shift+Tab for next / previous tab, Alt+← / Alt+→ for back / forward, and Ctrl+, Ctrl+= Ctrl+- Ctrl+0 as on
 macOS.
 
 ## Build from source

@@ -21,6 +21,8 @@ const SHORTCUTS: Record<string, { mac: string; win: string }> = {
   "sidebar-side": { mac: "⇧⌘B", win: "Ctrl+Alt+B" },
   "next-tab": { mac: "⇧⌘]", win: "Ctrl+Tab" },
   "prev-tab": { mac: "⇧⌘[", win: "Ctrl+Shift+Tab" },
+  "go-back": { mac: "⌃-", win: "Alt+←" },
+  "go-forward": { mac: "⌃⇧-", win: "Alt+→" },
   settings: { mac: "⌘,", win: "Ctrl+," },
   "zoom-in": { mac: "⌘=", win: "Ctrl+=" },
   "zoom-out": { mac: "⌘-", win: "Ctrl+-" },
@@ -39,6 +41,9 @@ export function key(id: keyof typeof SHORTCUTS, windows = isWindows): string {
 export function windowsShortcut(
   e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "shiftKey" | "altKey" | "metaKey">,
 ) {
+  // Back/forward as in VS Code; Alt+arrows aren't bound in PowerShell by default.
+  if (e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight"))
+    return e.key === "ArrowLeft" ? "go-back" : "go-forward";
   if (!e.ctrlKey || e.metaKey) return null;
   const digit = /^Digit([1-9])$/.exec(e.code);
   if (e.altKey && !e.shiftKey && digit) return `goto-tab:${digit[1]}`;

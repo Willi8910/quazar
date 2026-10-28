@@ -89,6 +89,10 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .item(&item("next-tab", "Next Tab", "CmdOrCtrl+Shift+]")?)
         .item(&item("prev-tab", "Previous Tab", "CmdOrCtrl+Shift+[")?)
         .item(&item("next-attention", "Next Agent Needing You", "CmdOrCtrl+J")?)
+        .separator()
+        // Control, not Command: ⌃- / ⌃⇧- as in VS Code.
+        .item(&item("go-back", "Back", "Ctrl+-")?)
+        .item(&item("go-forward", "Forward", "Ctrl+Shift+-")?)
         .separator();
     for n in 1..=9 {
         tabs = tabs.item(&item(&format!("tab-{n}"), &format!("Tab {n}"), &format!("CmdOrCtrl+{n}"))?);

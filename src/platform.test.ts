@@ -24,6 +24,13 @@ describe("shortcuts", () => {
     expect(windowsShortcut(press("Digit3", "3", { alt: true }))).toBe("goto-tab:3");
   });
 
+  it("maps Alt+arrows to back and forward", () => {
+    const alt = (key: string) => ({ code: key, key, ctrlKey: false, shiftKey: false, altKey: true, metaKey: false });
+    expect(windowsShortcut(alt("ArrowLeft"))).toBe("go-back");
+    expect(windowsShortcut(alt("ArrowRight"))).toBe("go-forward");
+    expect(windowsShortcut({ ...alt("ArrowLeft"), shiftKey: true })).toBeNull();
+  });
+
   it("leaves plain Ctrl keys to the shell", () => {
     expect(windowsShortcut(press("KeyC", "c"))).toBeNull();
     expect(windowsShortcut(press("KeyW", "w"))).toBeNull();

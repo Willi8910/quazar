@@ -270,6 +270,8 @@ function Palette() {
       cmd("new-group", "New group", () => actions.newGroup()),
       cmd("quick-terminal", "Quick terminal (plain shell in ~)", actions.newQuickTerminal),
       cmd("attention", "Next agent needing you", actions.nextNeedingYou, key("next-attention")),
+      cmd("go-back", "Go back to the previous tab", actions.goBack, key("go-back")),
+      cmd("go-forward", "Go forward", actions.goForward, key("go-forward")),
       ...(active
         ? [
             cmd("rename", "Rename tab…", () => actions.renameTab(active.id), key("rename-tab")),
