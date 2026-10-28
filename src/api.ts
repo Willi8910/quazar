@@ -46,6 +46,7 @@ export const api = {
     invoke<boolean>("notify", { tabId, title, subtitle, body }),
   updateBuild: () => invoke<void>("update_build"),
   updateInstall: () => invoke<void>("update_install"),
+  restartApp: () => invoke<void>("restart_app"),
   tabProcesses: (tabId: string) => invoke<ProcessInfo[]>("tab_processes", { tabId }),
   stopProcess: (tabId: string, pid: number) => invoke<void>("stop_process", { tabId, pid }),
 

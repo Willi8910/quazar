@@ -8,6 +8,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { api } from "./api";
 import { busyIn, nextAttention } from "./attention";
 import { launchCommand, profileAgent } from "./launch";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { emptyHistory, step, visit } from "./history";
 import { fileManager, isWindows, joinCommands, windowsShortcut } from "./platform";
 import type { SessionRow } from "./sessions";
@@ -620,9 +621,14 @@ export async function requestQuit(finish: () => Promise<unknown> = api.quit, ver
 }
 
 // ---------- updating Quazar ----------
-// For a Quazar built from source on this Mac: rebuild when the source changed, then swap and relaunch.
+// Built from source on this Mac: rebuild when the source changed, then swap and relaunch.
+// Installed from a release (.dmg / setup.exe): the updater downloads the newer release, checks its signature,
+// installs it and restarts.
 
 let updateCheckedAt = 0;
+let releaseCheckedAt = 0;
+/** The newer release the updater found, downloaded once the user clicks Update. */
+let release: Update | null = null;
 
 /** "0.1.0 · built Oct 22, 23:41" */
 export function versionText(): string {
@@ -659,11 +665,17 @@ export async function checkForUpdate(force = false) {
   if (!force && Date.now() - updateCheckedAt < 5 * 60_000) return;
   updateCheckedAt = Date.now();
   const status = await api.updateStatus().catch(() => null);
-  useApp.setState({ update: status?.available ? { phase: "available" } : null });
+  if (status?.supported) return useApp.setState({ update: status.available ? { phase: "available" } : null });
+  // A release install: ask GitHub at launch and then at most every 6 hours (one small request).
+  if (import.meta.env.DEV || (!force && Date.now() - releaseCheckedAt < 6 * 3600_000)) return;
+  releaseCheckedAt = Date.now();
+  release = await check().catch(() => null);
+  useApp.setState({ update: release ? { phase: "available", version: release.version } : null });
 }
 
 /** Rebuilds Quazar in the background; progress arrives as `update-progress` / `update-built`. */
 export async function startUpdate() {
+  if (release) return downloadRelease(release);
   try {
     useApp.setState({ update: { phase: "building", line: "Starting the build…" } });
     await api.updateBuild();
@@ -672,10 +684,38 @@ export async function startUpdate() {
   }
 }
 
+/** Downloads the release update in the background; installing waits for "Restart to update". */
+async function downloadRelease(update: Update) {
+  let total = 0;
+  let got = 0;
+  let shown = -1;
+  try {
+    useApp.setState({ update: { phase: "building", line: `Downloading ${update.version}…` } });
+    await update.download((e) => {
+      if (e.event === "Started") total = e.data.contentLength ?? 0;
+      if (e.event !== "Progress" || !total) return;
+      got += e.data.chunkLength;
+      const percent = Math.floor((got / total) * 100);
+      if (percent === shown) return;
+      shown = percent;
+      useApp.setState({ update: { phase: "building", line: `Downloading ${update.version}… ${percent}%` } });
+    });
+    useApp.setState({ update: { phase: "ready", version: update.version } });
+  } catch (e) {
+    useApp.setState({ update: { phase: "failed", log: String(e) } });
+  }
+}
+
 /** Restarts into the new build. The main window saves the state, so it runs this. */
 export function installUpdate() {
   if (get().me !== "main") return void emitTo("main", "install-update");
-  void requestQuit(api.updateInstall, "Restart");
+  const update = release;
+  if (!update) return void requestQuit(api.updateInstall, "Restart");
+  // On Windows `install` runs the installer, which closes Quazar and opens the new version itself.
+  void requestQuit(async () => {
+    await update.install();
+    await api.restartApp();
+  }, "Restart");
 }
 
 // ---------- events from the backend ----------

@@ -59,8 +59,11 @@ https://github.com/user-attachments/assets/12107de2-7775-4857-82d1-da5facec5df0
    xattr -dr com.apple.quarantine /Applications/Quazar.app
    ```
 
-To update, download the new release and replace the app in Applications. Your tabs, groups and settings are
-kept (they live in `~/Library/Application Support/com.williamlie.quazar`).
+**Updates install themselves** from 0.2.4 on: when a new release is out, an **Update to …** button appears
+in the sidebar; it downloads the release in the background (checked against Quazar's signing key), and
+**Restart to update** installs it. Your tabs, groups and settings are kept (they live in
+`~/Library/Application Support/com.williamlie.quazar`). Versions before 0.2.4 can't update themselves:
+download 0.2.4 or later once and replace the app in Applications.
 
 ### Windows
 

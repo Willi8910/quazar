@@ -317,7 +317,11 @@ export interface UpdateStatus {
 
 /** Where updating Quazar stands. */
 export type UpdatePhase =
-  { phase: "available" } | { phase: "building"; line: string } | { phase: "ready" } | { phase: "failed"; log: string };
+  // `version`: a release update (installed copies); without it, a rebuild from the source folder.
+  | { phase: "available"; version?: string }
+  | { phase: "building"; line: string }
+  | { phase: "ready"; version?: string }
+  | { phase: "failed"; log: string };
 
 /** One process in a tab (see `tab_processes`). */
 export interface ProcessInfo extends ResourceUse {

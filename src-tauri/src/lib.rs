@@ -30,6 +30,13 @@ fn quit_app(app: AppHandle, allowed: State<'_, QuitAllowed>) {
     app.exit(0);
 }
 
+/// Restarts into the release update the updater just installed (the UI has saved the state).
+#[tauri::command]
+fn restart_app(app: AppHandle, allowed: State<'_, QuitAllowed>) {
+    allowed.0.store(true, Ordering::SeqCst);
+    app.restart();
+}
+
 /// Frontend errors/logs, printed to the terminal running the app.
 #[tauri::command]
 fn js_log(level: String, message: String) {
@@ -140,6 +147,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        // Updates for installed copies (from a release's .dmg / setup.exe): see `checkForUpdate`.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Ptys::default())
         .manage(QuitAllowed::default())
         .manage(windows::Handoffs::default())
@@ -190,6 +199,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             quit_app,
+            restart_app,
             agents::agent_list,
             agents::list_sessions,
             agents::list_skills,

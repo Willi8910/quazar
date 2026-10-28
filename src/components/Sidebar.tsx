@@ -301,7 +301,7 @@ function TipsButton() {
   );
 }
 
-/** Rebuilding Quazar from its source: shown when the source changed since this build. */
+/** Updating Quazar: a newer release to download, or (built from source) a rebuild when the source changed. */
 function UpdateButton() {
   const update = useApp((s) => s.update);
   if (!update) return null;
@@ -311,9 +311,13 @@ function UpdateButton() {
         <button
           className="update-btn"
           onClick={() => void actions.startUpdate()}
-          title="Quazar's source changed since this build. Click to rebuild it in the background (a few minutes); you restart when it's ready."
+          title={
+            update.version
+              ? `Quazar ${update.version} is out. Click to download it in the background; you restart when it's ready.`
+              : "Quazar's source changed since this build. Click to rebuild it in the background (a few minutes); you restart when it's ready."
+          }
         >
-          Update
+          {update.version ? `Update to ${update.version}` : "Update"}
         </button>
       );
     case "building":
@@ -328,7 +332,7 @@ function UpdateButton() {
         <button
           className="update-btn ready"
           onClick={actions.installUpdate}
-          title="The new build is ready. Restart now: tabs and agent sessions come back."
+          title={`${update.version ? `Quazar ${update.version}` : "The new build"} is ready. Restart now: tabs and agent sessions come back.`}
         >
           Restart to update
         </button>
@@ -338,7 +342,7 @@ function UpdateButton() {
         <button
           className="update-btn failed"
           onClick={() => void actions.startUpdate()}
-          title={`The build failed — see ${update.log}. Click to try again.`}
+          title={`The update failed — ${update.log}. Click to try again.`}
         >
           Update failed · retry
         </button>
