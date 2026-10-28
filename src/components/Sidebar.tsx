@@ -12,6 +12,7 @@ import { timeAgo, tildify } from "../util";
 import { HiddenManager, ManagerAnchor } from "./HiddenManager";
 import { useHoverPopover, windowRect } from "./hover";
 import { MetricsBar, TabMetrics } from "./Metrics";
+import { PullRequestLink } from "./PullRequest";
 import {
   AgentIcon,
   HistoryIcon,
@@ -250,6 +251,7 @@ function TabRow({
               <span className="minus">−{changes.removed}</span>
             </button>
           )}
+          {tab.pr && <PullRequestLink pr={tab.pr} className="tab-pr" />}
           {live && <TabMetrics tabId={tab.id} />}
         </div>
       </div>
@@ -651,16 +653,20 @@ export function Sidebar() {
         groupId: groupId === "none" ? null : groupId,
       });
     };
+    // ＋ starts Claude (permissions bypassed) right away: in a folder's own folder, or in a group in the folder
+    // of the tabs already there. The launcher only when there's no folder to go by.
     const newTabHere = () => {
       actions.expandNodes([node.key]);
       const s = useApp.getState();
-      if (node.group) return s.openModal({ kind: "launcher", mode: "agent", groupId: node.group.id });
-      // Folder nodes: a shell in the folder (in the group it's shown under), with an agent picker at the bottom.
-      const cwd = node.folder ?? all[0]?.repoRoot ?? all[0]?.cwd;
       const path = pathTo(sidebarTree(true), node.key) ?? [];
-      const groupId = ownerGroupId(path);
-      if (cwd && (node.folder || all.length === 1))
-        actions.newTabWithQuickLaunch(cwd, groupId === "none" ? null : groupId);
+      const owner = ownerGroupId(path);
+      const groupId = node.group ? node.group.id : owner === "none" ? null : owner;
+      const sibling = node.tabs[0] ?? all[0];
+      const cwd = node.folder ?? (node.group ? (sibling?.cwd ?? node.group.folders[0]) : undefined);
+      if (cwd && actions.newAgentIn("claude", { cwd, groupId })) return;
+      if (node.group) return s.openModal({ kind: "launcher", mode: "agent", groupId: node.group.id });
+      const shellCwd = node.folder ?? all[0]?.repoRoot ?? all[0]?.cwd;
+      if (shellCwd && (node.folder || all.length === 1)) actions.newTabWithQuickLaunch(shellCwd, groupId);
       else s.openModal({ kind: "launcher", mode: "agent" });
     };
     return (
@@ -713,7 +719,7 @@ export function Sidebar() {
             )}
             <button
               className="icon-btn small"
-              title="New tab here"
+              title="New Claude here (permissions bypassed)"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();

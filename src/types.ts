@@ -63,8 +63,16 @@ export interface Tab {
   changes?: ChangeCount | null;
   /** Ids of the tab's tags (`Config.tags`). */
   tags?: string[];
+  /** The last pull/merge request link shown in the tab (see `pr.ts`). */
+  pr?: PullRequest | null;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface PullRequest {
+  url: string;
+  /** "PR #142", "MR !87". */
+  label: string;
 }
 
 export type TagColor =

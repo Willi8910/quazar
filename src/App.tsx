@@ -26,6 +26,7 @@ import { Sidebar } from "./components/Sidebar";
 import { launchCommand, profileAgent } from "./launch";
 import { fileManager, isMac, key } from "./platform";
 import { agentInfo, useApp } from "./store";
+import { PullRequestLink } from "./components/PullRequest";
 import * as terms from "./terminals";
 import { basename, tildify } from "./util";
 import "@xterm/xterm/css/xterm.css";
@@ -342,6 +343,7 @@ function TopBar() {
           </div>
           <div className={"topbar-actions" + (labels ? "" : " compact")}>
             <TabResources tabId={tab.id} labels={labels} />
+            {tab.pr && <PullRequestLink pr={tab.pr} className="topbar-btn topbar-pr" />}
             {!!tab.changes?.files && (
               <button
                 className="topbar-btn"

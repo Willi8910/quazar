@@ -89,16 +89,21 @@ export function newShellHere() {
  * Uses the user's profile for that agent when there is one (keeping its own flags), else the agent's program.
  */
 export function newAgentHere(agent: AgentName) {
+  newAgentIn(agent, besideActive() ?? { cwd: untildify("~"), groupId: null });
+}
+
+/** Starts `agent` with permissions bypassed in a new tab in `at`. False when that agent isn't known. */
+export function newAgentIn(agent: AgentName, at: { cwd: string; groupId: string | null }): boolean {
   const { agents, config } = get();
   const info = agents.find((a) => a.name === agent);
-  if (!info) return;
+  if (!info) return false;
   const profile = config!.profiles.find((p) => p.command.trim() && profileAgent(p)?.name === agent) ?? {
     id: `agent-${agent}`,
     name: info.label,
     command: info.programs[0],
   };
-  const at = besideActive() ?? { cwd: untildify("~"), groupId: null };
   newTab(at.cwd, profile, at.groupId, { bypass: true, plan: false, worktree: false });
+  return true;
 }
 
 /** A plain shell in the home folder for odd jobs (k9s, aws …), kept out of the folder groups. */

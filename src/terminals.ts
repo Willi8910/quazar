@@ -11,8 +11,9 @@ import { IBufferCell, IMarker, Terminal } from "@xterm/xterm";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { api } from "./api";
 import { isWindows, joinCommands } from "./platform";
+import { pullRequest } from "./pr";
 import { useApp } from "./store";
-import type { Tab } from "./types";
+import type { PullRequest, Tab } from "./types";
 
 interface Entry {
   term: Terminal;
@@ -174,7 +175,7 @@ function create(tabId: string, container: HTMLElement): Entry {
   let linkTimer: number | undefined;
   const linksLater = () => {
     window.clearTimeout(linkTimer);
-    linkTimer = window.setTimeout(() => colorLinks(entry), 150);
+    linkTimer = window.setTimeout(() => colorLinks(tabId, entry), 150);
   };
   term.onWriteParsed(linksLater);
   term.onScroll(linksLater);
@@ -188,8 +189,11 @@ let scratchCell: IBufferCell | undefined;
 
 const URL_PATTERN = /https?:\/\/[^\s"'<>`\][{}|\\^]+/g;
 
-/** Colours the links on screen blue: only the visible lines, and only when they changed. */
-function colorLinks(entry: Entry) {
+/**
+ * Colours the links on screen blue: only the visible lines, and only when they changed. A pull/merge
+ * request link among them becomes the tab's PR badge.
+ */
+function colorLinks(tabId: string, entry: Entry) {
   const { term } = entry;
   if (entry.host.style.display === "none") return;
   const buffer = term.buffer.active;
@@ -205,6 +209,7 @@ function colorLinks(entry: Entry) {
   for (const marker of entry.links) marker.dispose();
   entry.links = [];
   const cursorLine = buffer.baseY + buffer.cursorY;
+  let pr: PullRequest | null = null;
   for (const { y, line, text: plain } of lines) {
     if (!/https?:\/\//.test(plain)) continue;
     // The line's text, and the column each character starts at (wide characters take two).
@@ -220,6 +225,7 @@ function colorLinks(entry: Entry) {
     }
     for (const match of text.matchAll(URL_PATTERN)) {
       const url = match[0].replace(/[.,;:!?'")]+$/, "");
+      pr = pullRequest(url) ?? pr;
       const start = columns[match.index];
       const end = columns[match.index + url.length - 1] + 1;
       const marker = term.registerMarker(y - cursorLine);
@@ -228,6 +234,14 @@ function colorLinks(entry: Entry) {
       entry.links.push(marker);
     }
   }
+  if (pr) setPullRequest(tabId, pr);
+}
+
+/** Not `updateTab`: seeing a link isn't activity, so the tab's time stays put. */
+function setPullRequest(tabId: string, pr: PullRequest) {
+  const tab = useApp.getState().tabs.find((t) => t.id === tabId);
+  if (!tab || tab.pr?.url === pr.url) return;
+  useApp.setState((s) => ({ tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, pr } : t)) }));
 }
 
 function onTerminalTitle(tabId: string, raw: string) {
@@ -437,7 +451,7 @@ export function show(tabId: string, container: HTMLElement) {
   }
   fitActive(tabId);
   entry.linksSeen = "";
-  colorLinks(entry);
+  colorLinks(tabId, entry);
   if (!entry.running) void (useApp.getState().live[tabId] ? attach(tabId) : start(tabId));
   entry.term.focus();
 }

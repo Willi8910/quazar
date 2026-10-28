@@ -1591,6 +1591,24 @@ select.input {
   color: var(--waiting);
   font-size: 11px;
 }
+.tab-pr {
+  flex: none;
+  padding: 0 4px;
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  cursor: pointer;
+}
+.tab-pr:hover {
+  background: var(--hover);
+  text-decoration: underline;
+}
+.topbar-pr {
+  color: var(--accent);
+  text-decoration: none;
+}
 .tab-changes {
   flex: none;
   display: inline-flex;

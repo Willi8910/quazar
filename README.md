@@ -25,6 +25,8 @@ https://github.com/user-attachments/assets/12107de2-7775-4857-82d1-da5facec5df0
 - **Tags.** Label tabs with your own tags (name, category, colour) as a light task tracker: they show before
   the tab name; click one to swap it for another of the same category, hover for × to remove it. Manage and
   reorder them in **Settings → Tags**.
+- **Pull requests on tabs.** When an agent prints a pull or merge request link (GitHub, GitLab, Bitbucket), the
+  tab shows it as **PR #142** / **MR !87**; click it to open the request.
 - **Review changes.** See an agent's uncommitted changes as a unified or split diff, comment on lines, and send
   the comments back to the agent as its next prompt.
 - **Worktree aware.** Shows each agent's branch and git worktree, and warns when two agents share a checkout.
@@ -83,6 +85,8 @@ plain Ctrl+C / Ctrl+V / Ctrl+W still reach the shell; Ctrl+C copies when text is
 3. **⌘N** to start an agent in a project, **⌘T** for a plain terminal. The sidebar's **New** button opens a shell beside the
    current tab (same group, the group's folder); hover it to start Claude Code, Codex or Gemini there in one
    click, with permissions bypassed.
+   The **＋** on a folder or group starts Claude Code there right away (permissions bypassed): in the folder
+   itself, or in a group in the folder of the tabs already in it.
 
 ## Keyboard shortcuts
 
