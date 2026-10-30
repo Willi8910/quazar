@@ -2,7 +2,7 @@
 // an agent), topped up with the skills they made themselves, newest first.
 import type { Skill, Usage } from "./types";
 
-export const DEFAULT_RECENT_SKILLS = 6;
+export const DEFAULT_RECENT_SKILLS = 12;
 
 /** A skill as the menu lists it. */
 export interface SkillEntry {
