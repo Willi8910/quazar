@@ -1,6 +1,6 @@
 [package]
 name = "quazar"
-version = "0.2.5"
+version = "0.2.6"
 license = "MIT"
 description = "Lightweight terminal for LLM coding agents"
 authors = ["William Lie"]

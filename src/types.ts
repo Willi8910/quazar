@@ -174,7 +174,7 @@ export interface Config {
   consoleButton?: boolean;
   /** Where the user dragged it: its centre as a fraction of the console's width and height (unset = bottom right). */
   consoleButtonAt?: { x: number; y: number };
-  /** How many skills its menu lists (unset = 6). */
+  /** How many skills its menu lists (unset = 20). */
   recentSkills?: number;
   /** Launcher checkboxes, remembered between launches. */
   launchOptions: Record<LaunchOption, boolean>;
