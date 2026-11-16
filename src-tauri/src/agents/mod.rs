@@ -325,7 +325,8 @@ fn parse(args: &[String], spec: &Flags) -> Vec<Item> {
 /// Recognises an interactive agent launch in a shell command line, e.g.
 /// `claude --dangerously-skip-permissions` or `FOO=1 codex --yolo "fix it"`.
 pub fn detect_launch(cmdline: &str) -> Option<Launch> {
-    let words = shell_words::split(cmdline).ok()?;
+    // zsh's alias-expanded line puts each job on its own line: newlines separate commands too.
+    let words = shell_words::split(&cmdline.replace('\n', " ; ")).ok()?;
     // The first simple command of the list that runs an agent, so `usa && claude …` is found too.
     let (words, cmd_at, agent) = words
         .split(|w| matches!(w.as_str(), ";" | "&&" | "||" | "|" | "&"))
@@ -453,6 +454,17 @@ mod tests {
         assert!(detect_launch("codex exec 'do it'").is_none());
         assert!(detect_launch("codex login").is_none());
         assert!(detect_launch("echo claude").is_none());
+    }
+
+    #[test]
+    fn detects_alias_expanded_launches() {
+        // zsh hands preexec `cc` expanded; `a & b` aliases come split over lines.
+        let l = detect_launch("claude --dangerously-skip-permissions").unwrap();
+        assert_eq!(l.argv, ["claude", "--dangerously-skip-permissions"]);
+        let l = detect_launch("unset ANTHROPIC_API_KEY &\nclaude --dangerously-skip-permissions").unwrap();
+        assert_eq!(l.argv, ["claude", "--dangerously-skip-permissions"]);
+        let l = detect_launch("usa\nclaude --model opus > /dev/null\ntrue").unwrap();
+        assert_eq!(l.argv, ["claude", "--model", "opus", ">", "/dev/null"]);
     }
 
     #[test]

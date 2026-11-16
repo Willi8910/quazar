@@ -13,8 +13,9 @@ if [[ -n $QUAZAR_TAB_ID && -S $QUAZAR_SOCK ]]; then
     print -rn -- "\"$s\""
   }
   _quazar_send() { print -r -- "$1" | nc -U -w 1 "$QUAZAR_SOCK" >/dev/null 2>&1 &! }
+  # $3 is the line with aliases expanded, so `alias cc="claude --dangerously-skip-permissions"` is seen as claude.
   _quazar_preexec() {
-    _quazar_send "{\"tab\":\"$QUAZAR_TAB_ID\",\"kind\":\"preexec\",\"cmd\":$(_quazar_json "$1"),\"cwd\":$(_quazar_json "$PWD")}"
+    _quazar_send "{\"tab\":\"$QUAZAR_TAB_ID\",\"kind\":\"preexec\",\"cmd\":$(_quazar_json "${3:-$1}"),\"cwd\":$(_quazar_json "$PWD")}"
   }
   _quazar_precmd() {
     _quazar_send "{\"tab\":\"$QUAZAR_TAB_ID\",\"kind\":\"precmd\",\"cwd\":$(_quazar_json "$PWD")}"
