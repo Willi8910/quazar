@@ -68,6 +68,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .about(None)
         .separator()
         .item(&item("settings", "Settings…", "CmdOrCtrl+,")?)
+        .item(&MenuItemBuilder::with_id("check-updates", "Check for Updates…").build(app)?)
         .item(&MenuItemBuilder::with_id("install-hooks", "Install Agent Hooks…").build(app)?)
         .separator()
         .hide()

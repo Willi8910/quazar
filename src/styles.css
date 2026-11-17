@@ -2018,10 +2018,16 @@ body.dragging-frame * {
   justify-content: space-between;
 }
 .settings-version {
+  margin-left: auto;
   color: var(--faint);
   font-size: 11px;
   font-weight: normal;
-  padding-right: 4px;
+  padding-right: 8px;
+}
+.settings-head .settings-update {
+  font-size: 11px;
+  font-weight: normal;
+  margin-right: 4px;
 }
 .updated-check {
   flex: none;

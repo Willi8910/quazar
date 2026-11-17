@@ -673,6 +673,37 @@ export async function checkForUpdate(force = false) {
   useApp.setState({ update: release ? { phase: "available", version: release.version } : null });
 }
 
+/** "Check for Updates…": asks right away and always says what it found, also when the check fails. */
+export async function checkForUpdatesNow() {
+  // The main window holds the update (it installs it), so it checks.
+  if (get().me !== "main") return void emitTo("main", "menu", "check-updates");
+  const s = get();
+  const phase = s.update?.phase;
+  if (phase === "building") return s.showToast("An update is already downloading");
+  if (phase === "ready") return s.showToast("An update is ready · restart to install it");
+  const status = await api.updateStatus().catch(() => null);
+  if (status?.supported) {
+    updateCheckedAt = Date.now();
+    useApp.setState({ update: status.available ? { phase: "available" } : null });
+    return s.showToast(status.available ? "Newer source found · Update in the sidebar" : "Quazar is up to date");
+  }
+  if (import.meta.env.DEV) return s.showToast("Updates are off in development builds");
+  s.showToast("Checking for updates…");
+  try {
+    releaseCheckedAt = Date.now();
+    release = await check();
+  } catch (e) {
+    return void message(`Couldn't reach GitHub to check for updates.\n\n${String(e)}`, {
+      title: "Update check failed",
+      kind: "warning",
+    });
+  }
+  useApp.setState({ update: release ? { phase: "available", version: release.version } : null });
+  if (!release) return s.showToast(`Quazar${s.appInfo ? ` ${s.appInfo.version}` : ""} is up to date`);
+  s.showToast(`Quazar ${release.version} is available · downloading`);
+  void downloadRelease(release);
+}
+
 /** Rebuilds Quazar in the background; progress arrives as `update-progress` / `update-built`. */
 export async function startUpdate() {
   if (release) return downloadRelease(release);
@@ -1334,6 +1365,8 @@ export function onMenu(id: string) {
       return s.openModal({ kind: "settings" });
     case "install-hooks":
       return s.openModal({ kind: "hooks" });
+    case "check-updates":
+      return void checkForUpdatesNow();
   }
 }
 

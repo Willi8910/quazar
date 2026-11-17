@@ -91,6 +91,9 @@ function create(tabId: string, container: HTMLElement): Entry {
     scrollback: 5000,
     cursorBlink: true,
     drawBoldTextInBrightColors: false,
+    // Hyperlinks agents print (OSC 8): open in the browser on click. xterm's default asks with
+    // confirm() and then calls window.open, which does nothing in the app's webview.
+    linkHandler: { activate: (_e, uri) => void openUrl(uri) },
   });
   const fit = new FitAddon();
   term.loadAddon(fit);

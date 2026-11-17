@@ -398,6 +398,9 @@ export function Settings({ onClose, initial }: { onClose: () => void; initial?: 
           <span className="settings-version" title="Quazar version and when this build was made">
             Quazar {actions.versionText()}
           </span>
+          <button className="link-btn settings-update" onClick={() => void actions.checkForUpdatesNow()}>
+            Check for updates
+          </button>
         </div>
         <div className="settings-tabs" role="tablist">
           {SECTIONS.map((s) => (

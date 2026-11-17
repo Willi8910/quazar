@@ -326,8 +326,16 @@ function Palette() {
       ...(s.update?.phase === "ready"
         ? [cmd("update", "Restart to update Quazar", actions.installUpdate)]
         : s.update?.phase === "available" || s.update?.phase === "failed"
-          ? [cmd("update", "Update Quazar (rebuild from source)", () => void actions.startUpdate())]
-          : [cmd("update-check", "Check for Quazar updates", () => void actions.checkForUpdate(true))]),
+          ? [
+              cmd(
+                "update",
+                s.update.phase === "available" && s.update.version
+                  ? `Update Quazar to ${s.update.version}`
+                  : "Update Quazar (rebuild from source)",
+                () => void actions.startUpdate(),
+              ),
+            ]
+          : [cmd("update-check", "Check for updates…", () => void actions.checkForUpdatesNow())]),
       cmd("config", "Open settings file", () => void actions.openConfigFile()),
       cmd("rescan", "Rescan project folders", () => void actions.rescanProjects()),
     ];
