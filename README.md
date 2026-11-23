@@ -42,35 +42,36 @@ https://github.com/user-attachments/assets/12107de2-7775-4857-82d1-da5facec5df0
 - **Tips.** The light bulb in the sidebar walks through the features hidden behind hover, right-click and drag,
   each with a live preview.
 - **Keyboard first.** Everything is in the command palette (**⌘K**).
-- **macOS and Windows.** Native zsh integration on macOS; PowerShell on Windows (preview).
+- **macOS and Windows.** Native zsh integration on macOS; PowerShell on Windows.
 
 ## Install
 
 ### macOS
 
 1. Download **`Quazar_<version>_universal.dmg`** from the
-   [latest release](https://github.com/Willi8910/quazar/releases/latest). It runs on Apple Silicon and Intel
-   Macs (macOS 13 or later).
-2. Open the `.dmg` and drag **Quazar** to **Applications**.
-3. Quazar isn't signed with an Apple Developer ID yet, so macOS blocks it on first launch. Run this once in
-   Terminal, then open Quazar normally:
+   [latest release](https://github.com/Willi8910/quazar/releases/latest), open it and drag **Quazar** to
+   **Applications**. It runs on Apple Silicon and Intel Macs (macOS 13 or later).
+2. **Run this once in Terminal before the first launch** — Quazar isn't notarized by Apple yet, so macOS
+   otherwise blocks it (or says it's damaged):
 
    ```sh
    xattr -dr com.apple.quarantine /Applications/Quazar.app
    ```
 
+3. Open Quazar normally.
+
 **Updates install themselves** from 0.2.4 on: when a new release is out, an **Update to …** button appears
 in the sidebar; it downloads the release in the background (checked against Quazar's signing key), and
-**Restart to update** installs it. Your tabs, groups and settings are kept (they live in
+**Restart to update** installs it (or check yourself: **Quazar → Check for Updates…**, also in Settings and ⌘K). Your tabs, groups and settings are kept (they live in
 `~/Library/Application Support/com.williamlie.quazar`). Versions before 0.2.4 can't update themselves:
 download 0.2.4 or later once and replace the app in Applications.
 
 ### Windows
 
-A **preview** is available as a pre-release; it's still being tested, so expect rough edges.
+Windows support is newer than macOS, so expect a few rough edges.
 
-1. Download **`Quazar_<version>_x64-setup.exe`** from the newest `v…-windows.N` pre-release on the
-   [releases page](https://github.com/Willi8910/quazar/releases).
+1. Download **`Quazar_<version>_x64-setup.exe`** from the
+   [latest release](https://github.com/Willi8910/quazar/releases/latest).
 2. Run it. The installer isn't signed yet, so SmartScreen warns once: **More info → Run anyway**.
 
 Tabs open PowerShell 7 (`pwsh`) if it's installed, otherwise Windows PowerShell. Claude Code on Windows needs
