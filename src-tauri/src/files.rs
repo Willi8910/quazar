@@ -31,7 +31,8 @@ fn resolve(bases: &[String], candidate: &str) -> Option<FoundPath> {
     };
     tries.into_iter().find_map(|p| {
         let meta = std::fs::metadata(&p).ok()?;
-        let path = p.canonicalize().unwrap_or(p);
+        // Windows canonical paths start with `\\?\`, which Explorer's `/select,` doesn't take.
+        let path = if cfg!(windows) { p } else { p.canonicalize().unwrap_or(p) };
         Some(FoundPath { path: path.to_string_lossy().into_owned(), is_dir: meta.is_dir() })
     })
 }
@@ -120,7 +121,7 @@ mod tests {
         std::fs::write(dir.join("src/a.ts"), "").unwrap();
         let bases = vec!["/nonexistent-quazar".to_string(), dir.to_string_lossy().into_owned()];
         let found = resolve(&bases, "src/a.ts").unwrap();
-        assert!(found.path.ends_with("src/a.ts") && !found.is_dir);
+        assert!(Path::new(&found.path).ends_with(Path::new("src").join("a.ts")) && !found.is_dir);
         assert!(resolve(&bases, "src").unwrap().is_dir);
         assert!(resolve(&bases, "missing.md").is_none());
         std::fs::remove_dir_all(dir).unwrap();
