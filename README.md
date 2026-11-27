@@ -27,6 +27,9 @@ https://github.com/user-attachments/assets/12107de2-7775-4857-82d1-da5facec5df0
   reorder them in **Settings → Tags**.
 - **Pull requests on tabs.** When an agent prints a pull or merge request link (GitHub, GitLab, Bitbucket), the
   tab shows it as **PR #142** / **MR !87**; click it to open the request.
+- **Clickable file paths.** Hover a file or folder path an agent printed (`src/app.tsx:12`, `~/notes.md`) and
+  it underlines: click shows it in Finder/Explorer, ⌥-click (Alt-click) opens it, and dragging it drops the
+  file itself into another app, e.g. a browser upload or a chat.
 - **Review changes.** See an agent's uncommitted changes as a unified or split diff, comment on lines, and send
   the comments back to the agent as its next prompt.
 - **Worktree aware.** Shows each agent's branch and git worktree, and warns when two agents share a checkout.

@@ -7,10 +7,11 @@ import { SerializeAddon } from "@xterm/addon-serialize";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
-import { IBufferCell, IMarker, Terminal } from "@xterm/xterm";
+import { IBufferCell, IBufferLine, ILink, IMarker, Terminal } from "@xterm/xterm";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { api } from "./api";
-import { isWindows, joinCommands } from "./platform";
+import { findPaths } from "./filepaths";
+import { fileManager, isWindows, joinCommands } from "./platform";
 import { pullRequest } from "./pr";
 import { useApp } from "./store";
 import type { PullRequest, Tab } from "./types";
@@ -171,6 +172,7 @@ function create(tabId: string, container: HTMLElement): Entry {
     if (entries.get(tabId)?.running) void api.resize(tabId, cols, rows);
   });
   term.onTitleChange((title) => onTerminalTitle(tabId, title));
+  installPathLinks(tabId, term, host);
 
   const entry: Entry = { term, fit, serialize, host, webgl: null, running: false, links: [], linksSeen: "" };
   // Links in blue (xterm only underlines them on hover): looked for shortly after new output, a
@@ -215,17 +217,7 @@ function colorLinks(tabId: string, entry: Entry) {
   let pr: PullRequest | null = null;
   for (const { y, line, text: plain } of lines) {
     if (!/https?:\/\//.test(plain)) continue;
-    // The line's text, and the column each character starts at (wide characters take two).
-    let text = "";
-    const columns: number[] = [];
-    for (let x = 0; x < line.length; x++) {
-      const cell = (scratchCell = line.getCell(x, scratchCell));
-      if (!cell || cell.getWidth() === 0) continue; // second half of a wide character
-      const chars = cell.getChars() || " ";
-      // One column per UTF-16 unit, matching the string indexes the pattern reports.
-      for (let i = 0; i < chars.length; i++) columns.push(x);
-      text += chars;
-    }
+    const { text, columns } = cellText(line);
     for (const match of text.matchAll(URL_PATTERN)) {
       const url = match[0].replace(/[.,;:!?'")]+$/, "");
       pr = pullRequest(url) ?? pr;
@@ -238,6 +230,124 @@ function colorLinks(tabId: string, entry: Entry) {
     }
   }
   if (pr) setPullRequest(tabId, pr);
+}
+
+/** A line's text, and the column each character starts at (wide characters take two). */
+function cellText(line: IBufferLine): { text: string; columns: number[] } {
+  let text = "";
+  const columns: number[] = [];
+  for (let x = 0; x < line.length; x++) {
+    const cell = (scratchCell = line.getCell(x, scratchCell));
+    if (!cell || cell.getWidth() === 0) continue; // second half of a wide character
+    const chars = cell.getChars() || " ";
+    // One column per UTF-16 unit, matching the string indexes a pattern reports.
+    for (let i = 0; i < chars.length; i++) columns.push(x);
+    text += chars;
+  }
+  return { text, columns };
+}
+
+// ---------- file paths ----------
+
+type FoundPath = { path: string; isDir: boolean };
+/** Paths already looked up, by folders + candidate. Misses expire: an agent may create the file later. */
+const pathCache = new Map<string, { found: FoundPath | null; at: number }>();
+
+async function resolvePaths(bases: string[], candidates: string[]): Promise<(FoundPath | null)[]> {
+  const now = Date.now();
+  const key = (c: string) => bases.join("\0") + "\0" + c;
+  const fresh = (c: string) => {
+    const hit = pathCache.get(key(c));
+    return hit && (hit.found || now - hit.at < 5000) ? hit : null;
+  };
+  const missing = [...new Set(candidates.filter((c) => !fresh(c)))];
+  if (missing.length) {
+    const found = await api.resolvePaths(bases, missing).catch(() => missing.map(() => null));
+    if (pathCache.size > 1000) pathCache.clear();
+    missing.forEach((c, i) => pathCache.set(key(c), { found: found[i], at: now }));
+  }
+  return candidates.map((c) => pathCache.get(key(c))?.found ?? null);
+}
+
+const PATH_HINT = isWindows
+  ? `Click: show in ${fileManager} · Alt+click: open · drag: drop into another app`
+  : `Click: show in ${fileManager} · ⌥-click: open · drag: drop into another app`;
+
+/**
+ * Paths of existing files and folders in the output underline on hover (looked up only then, once
+ * per path). Click shows one in Finder/Explorer, ⌥/Alt-click opens it, and dragging it hands the
+ * file itself to another app — a browser upload, a chat, the desktop.
+ */
+function installPathLinks(tabId: string, term: Terminal, host: HTMLElement) {
+  let hovered: FoundPath | null = null;
+  term.registerLinkProvider({
+    provideLinks(y, callback) {
+      const line = term.buffer.active.getLine(y - 1);
+      const { text, columns } = line ? cellText(line) : { text: "", columns: [] };
+      const matches = findPaths(text);
+      const tab = useApp.getState().tabs.find((t) => t.id === tabId);
+      if (!matches.length || !tab) return callback(undefined);
+      const bases = [...new Set([tab.agentCwd, tab.cwd, tab.repoRoot].filter((b): b is string => !!b))];
+      void resolvePaths(
+        bases,
+        matches.map((m) => m.path),
+      ).then((found) => {
+        const links: ILink[] = [];
+        matches.forEach((m, i) => {
+          const target = found[i];
+          if (!target) return;
+          links.push({
+            range: { start: { x: columns[m.start] + 1, y }, end: { x: columns[m.start + m.length - 1] + 1, y } },
+            text: m.path,
+            decorations: { pointerCursor: true, underline: true },
+            activate: () => {}, // handled on mousedown below, so a drag doesn't also click
+            hover: () => {
+              hovered = target;
+              host.title = `${target.path}\n${PATH_HINT}`;
+            },
+            leave: () => {
+              hovered = null;
+              host.title = "";
+            },
+          });
+        });
+        callback(links.length ? links : undefined);
+      });
+    },
+  });
+
+  // Captured before xterm sees it: no text selection, no ⌥-click moving the shell's cursor.
+  host.addEventListener(
+    "mousedown",
+    (e) => {
+      const target = hovered;
+      if (e.button !== 0 || !target || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const [x0, y0] = [e.clientX, e.clientY];
+      let dragging = false;
+      const done = () => {
+        window.removeEventListener("mousemove", move, true);
+        window.removeEventListener("mouseup", up, true);
+      };
+      const move = (m: MouseEvent) => {
+        if (Math.hypot(m.clientX - x0, m.clientY - y0) < 5) return;
+        dragging = true;
+        done();
+        void api.dragPath(target.path).catch(() => {});
+      };
+      const up = (u: MouseEvent) => {
+        done();
+        if (dragging) return;
+        u.stopPropagation();
+        const action = u.altKey ? api.openPath : api.revealPath;
+        void action(target.path).catch((err) => useApp.getState().showToast(String(err)));
+      };
+      window.addEventListener("mousemove", move, true);
+      window.addEventListener("mouseup", up, true);
+    },
+    true,
+  );
 }
 
 /** Not `updateTab`: seeing a link isn't activity, so the tab's time stays put. */

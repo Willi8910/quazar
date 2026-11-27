@@ -77,6 +77,11 @@ export const api = {
   worktreeRoot: (path: string) => invoke<string | null>("worktree_root", { path }),
   gitBranch: (path: string) => invoke<string | null>("git_branch", { path }),
   openInFinder: (path: string) => invoke<void>("open_in_finder", { path }),
+  resolvePaths: (bases: string[], candidates: string[]) =>
+    invoke<({ path: string; isDir: boolean } | null)[]>("resolve_paths", { bases, candidates }),
+  revealPath: (path: string) => invoke<void>("reveal_path", { path }),
+  openPath: (path: string) => invoke<void>("open_path", { path }),
+  dragPath: (path: string) => invoke<void>("drag_path", { path }),
 
   quit: () => invoke<void>("quit_app"),
 };

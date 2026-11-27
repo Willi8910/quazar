@@ -1,5 +1,6 @@
 mod agents;
 mod events;
+mod files;
 mod hooks;
 mod metrics;
 mod notifications;
@@ -244,6 +245,10 @@ pub fn run() {
             projects::git_changes,
             projects::git_file_diff,
             projects::open_in_finder,
+            files::resolve_paths,
+            files::reveal_path,
+            files::open_path,
+            files::drag_path,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Quazar");
